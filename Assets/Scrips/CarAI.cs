@@ -26,7 +26,11 @@ namespace UnityStandardAssets.Vehicles.Car
 
             Vector3 start_pos = terrain_manager.myInfo.start_pos;
             Vector3 goal_pos = terrain_manager.myInfo.goal_pos;
-
+            
+            // RRT function
+            Rrt(start_pos, goal_pos);
+            
+            // Replace the code below that makes a random path
             List<Vector3> my_path = new List<Vector3>();
 
             my_path.Add(start_pos);
@@ -37,16 +41,15 @@ namespace UnityStandardAssets.Vehicles.Car
                 my_path.Add(waypoint);
             }
             my_path.Add(goal_pos);
-
-
+            
             // Plot your path to see if it makes sense
             // Note that path can only be seen in "Scene" window, not "Game" window
             Vector3 old_wp = start_pos;
-            foreach (var wp in my_path)
+            /*foreach (var wp in my_path)
             {
                 Debug.DrawLine(old_wp, wp, Color.red, 100f);
                 old_wp = wp;
-            }
+            }*/
 
             
         }
@@ -79,6 +82,51 @@ namespace UnityStandardAssets.Vehicles.Car
             // this is how you control the car
             m_Car.Move(1f, 1f, 1f, 0f);
 
+        }
+
+        public void Rrt(Vector3 start_pos, Vector3 goal_pos)
+        {
+            float xLow = terrain_manager.myInfo.x_low;
+            float xHigh = terrain_manager.myInfo.x_high;
+            float zLow = terrain_manager.myInfo.z_low;
+            float zHigh = terrain_manager.myInfo.z_high;
+            float distanceGoal;
+            const int stepSize = 5;
+            const int distanceThreshold = 10;
+            bool pathFound = false;
+            GameObject car = GameObject.Find("Car");
+            Vector3 randomPoint = FindRandomPoint(xLow, xHigh, zLow, zHigh);
+            Debug.DrawLine(start_pos, randomPoint, Color.red, 100f);
+            /*while (pathFound == false)
+            {
+                Vector3 randomPoint = FindRandomPoint(xLow, xHigh, zLow, zHigh);
+                Debug.DrawLine(start_pos, randomPoint, Color.red, 100f);
+                
+                distanceGoal = Vector3.Distance(car.transform.position, goal_pos);
+                if (distanceGoal < distanceThreshold)
+                {
+                    pathFound = true;
+                }
+                
+            }*/
+        }
+
+        public Vector3 FindRandomPoint(float xLow, float xHigh, float zLow, float zHigh)
+        {
+            int i;
+            int j;
+            Vector3 randomPoint = new Vector3(0,0,0);
+            float obstacle = 1.0f;
+            
+            while (obstacle == 1.0f)
+            {
+                randomPoint = new Vector3(UnityEngine.Random.Range(xLow, xHigh), 0,
+                    UnityEngine.Random.Range(zLow, zHigh));
+                i = terrain_manager.myInfo.get_i_index(randomPoint.x);
+                j = terrain_manager.myInfo.get_j_index(randomPoint.z);
+                obstacle = terrain_manager.myInfo.traversability[i, j];
+            }
+            return randomPoint;
         }
     }
 }
