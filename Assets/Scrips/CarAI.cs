@@ -2,6 +2,8 @@
 using System.Collections.Generic;
 using UnityEngine;
 using System;
+using System.Diagnostics;
+using Debug = UnityEngine.Debug;
 
 
 namespace UnityStandardAssets.Vehicles.Car
@@ -91,13 +93,29 @@ namespace UnityStandardAssets.Vehicles.Car
             float zLow = terrain_manager.myInfo.z_low;
             float zHigh = terrain_manager.myInfo.z_high;
             float distanceGoal;
-            const int stepSize = 5;
             const int distanceThreshold = 10;
             bool pathFound = false;
             GameObject car = GameObject.Find("Car");
             var tree = new Node<Vector3>(start_pos);
+            
+            // Pick a random position, find a waypoint between it and a node and add it to the tree
             Vector3 randomPoint = FindRandomPoint(xLow, xHigh, zLow, zHigh);
             Debug.DrawLine(start_pos, randomPoint, Color.red, 100f);
+            Vector3 wayPoint = FindWayPoint(start_pos, randomPoint);
+            Debug.DrawLine(start_pos, wayPoint, Color.blue, 100f);
+            
+            Debug.Log(start_pos);
+            Debug.Log(wayPoint);
+            Debug.Log(randomPoint);
+            
+            int i = terrain_manager.myInfo.get_i_index(randomPoint.x);
+            int j = terrain_manager.myInfo.get_j_index(randomPoint.z);
+            float obstacle = terrain_manager.myInfo.traversability[i, j];
+            if (obstacle == 0.0f)
+            {
+                // add waypoint to tree
+            }
+
             /*while (pathFound == false)
             {
                 Vector3 randomPoint = FindRandomPoint(xLow, xHigh, zLow, zHigh);
@@ -128,6 +146,29 @@ namespace UnityStandardAssets.Vehicles.Car
                 obstacle = terrain_manager.myInfo.traversability[i, j];
             }
             return randomPoint;
+        }
+
+        public Vector3 FindWayPoint(Vector3 start_pos, Vector3 endPoint)
+        { 
+            const int stepSize = 5;
+            (float xDistWayPoint, float zDistWayPoint) = GetCoordDistanceBetweenPoints(start_pos, endPoint);
+            float distWayPoint = GetEuclDistanceBetweenPoints(start_pos, endPoint);
+            float wayPointX = start_pos.x+(stepSize * xDistWayPoint / distWayPoint);
+            float wayPointZ = start_pos.z+(stepSize * zDistWayPoint / distWayPoint);
+            Vector3 wayPoint = new Vector3(wayPointX, 0,wayPointZ);
+            return wayPoint;
+        }
+
+        public float GetEuclDistanceBetweenPoints(Vector3 pointA, Vector3 pointB)
+        {
+            float pathDistance = Mathf.Sqrt(Mathf.Pow(pointB.x - pointA.x,2) + Mathf.Pow(pointB.z - pointA.z,2));
+            return pathDistance;
+        }
+        public (float, float) GetCoordDistanceBetweenPoints(Vector3 pointA, Vector3 pointB)
+        {
+            float xDistance = pointB.x - pointA.x;
+            float zDistance = pointB.z - pointA.z;
+            return (xDistance, zDistance);
         }
     }
 }
