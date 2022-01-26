@@ -95,6 +95,7 @@ namespace UnityStandardAssets.Vehicles.Car
             const int distanceThreshold = 10;
             bool pathFound = false;
             GameObject car = GameObject.Find("Car");
+            var tree = new Node<Vector3>(start_pos);
             Vector3 randomPoint = FindRandomPoint(xLow, xHigh, zLow, zHigh);
             Debug.DrawLine(start_pos, randomPoint, Color.red, 100f);
             /*while (pathFound == false)
