@@ -75,7 +75,6 @@
      <Compile Include="Assets\Scrips\RandomMovement.cs" />
      <Compile Include="Assets\OtherAssets\Standard Assets\Vehicles\Car\Scripts\CarAIControl.cs" />
      <Compile Include="Assets\Scrips\TerrainManager.cs" />
-     <Compile Include="Assets\Scrips\Path.cs" />
      <Compile Include="Assets\OtherAssets\Standard Assets\CrossPlatformInput\Scripts\PlatformSpecific\StandaloneInput.cs" />
      <Compile Include="Assets\OtherAssets\Standard Assets\Vehicles\Car\Scripts\SkidTrail.cs" />
      <Compile Include="Assets\Scrips\RotateObject.cs" />
