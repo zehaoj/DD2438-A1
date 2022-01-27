@@ -93,41 +93,58 @@ namespace UnityStandardAssets.Vehicles.Car
             float zLow = terrain_manager.myInfo.z_low;
             float zHigh = terrain_manager.myInfo.z_high;
             float distanceGoal;
-            const int distanceThreshold = 10;
+            const int distanceThreshold = 5;
             bool pathFound = false;
             GameObject car = GameObject.Find("Car");
             var tree = new Node<Vector3>(start_pos);
+            Node<Vector3> newParent = tree.Root;
+            int iter = 0;
             
-            // Pick a random position, find a waypoint between it and a node and add it to the tree
-            Vector3 randomPoint = FindRandomPoint(xLow, xHigh, zLow, zHigh);
-            Debug.DrawLine(start_pos, randomPoint, Color.red, 100f);
-            Vector3 wayPoint = FindWayPoint(start_pos, randomPoint);
-            Debug.DrawLine(start_pos, wayPoint, Color.blue, 100f);
-            
-            Debug.Log(start_pos);
-            Debug.Log(wayPoint);
-            Debug.Log(randomPoint);
-            
-            int i = terrain_manager.myInfo.get_i_index(randomPoint.x);
-            int j = terrain_manager.myInfo.get_j_index(randomPoint.z);
-            float obstacle = terrain_manager.myInfo.traversability[i, j];
-            if (obstacle == 0.0f)
-            {
-                // add waypoint to tree
-            }
 
-            /*while (pathFound == false)
+            while (pathFound == false)
             {
+                iter += 1;
+                // Pick a random position, find a waypoint between it and a node and add it to the tree
                 Vector3 randomPoint = FindRandomPoint(xLow, xHigh, zLow, zHigh);
-                Debug.DrawLine(start_pos, randomPoint, Color.red, 100f);
+                //Debug.DrawLine(start_pos, randomPoint, Color.red, 100f);
                 
-                distanceGoal = Vector3.Distance(car.transform.position, goal_pos);
-                if (distanceGoal < distanceThreshold)
+                float dist = Vector3.Distance(start_pos, randomPoint);
+                Vector3 parentPoint = start_pos;
+                foreach (Node<Vector3> node in tree.All)
                 {
-                    pathFound = true;
+                    float newDist = Vector3.Distance(node.Value, randomPoint);
+                    if (dist > newDist)
+                    {
+                        dist = newDist;
+                        newParent = node;
+                        parentPoint = newParent.Value;
+                    }
+                }
+                Vector3 wayPoint = FindWayPoint(parentPoint, randomPoint);
+                //Debug.DrawLine(start_pos, wayPoint, Color.green, 100f);
+
+                int i = terrain_manager.myInfo.get_i_index(wayPoint.x);
+                int j = terrain_manager.myInfo.get_j_index(wayPoint.z);
+                float obstacle = terrain_manager.myInfo.traversability[i, j];
+                if (obstacle == 0.0f)
+                {
+                    newParent.Add(wayPoint);
+                    foreach (var node in tree.All.Values())
+                    {
+                        Debug.DrawLine(newParent.Value, wayPoint, Color.blue, 100f);
+                        
+                    }
                 }
                 
-            }*/
+                distanceGoal = Vector3.Distance(wayPoint, goal_pos);
+                if (distanceGoal < distanceThreshold)
+                {
+                    Debug.Log(String.Format("Found goal in {0} iterations.",
+                        iter));
+                    pathFound = true;
+                    
+                }
+            }
         }
 
         public Vector3 FindRandomPoint(float xLow, float xHigh, float zLow, float zHigh)
@@ -162,7 +179,7 @@ namespace UnityStandardAssets.Vehicles.Car
         public float GetEuclDistanceBetweenPoints(Vector3 pointA, Vector3 pointB)
         {
             float pathDistance = Mathf.Sqrt(Mathf.Pow(pointB.x - pointA.x,2) + Mathf.Pow(pointB.z - pointA.z,2));
-            return pathDistance;
+            return pathDistance; //Vector3.Distance(pointA, pointB) instead?
         }
         public (float, float) GetCoordDistanceBetweenPoints(Vector3 pointA, Vector3 pointB)
         {

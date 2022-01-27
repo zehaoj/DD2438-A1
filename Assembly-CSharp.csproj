@@ -63,6 +63,7 @@
      <Compile Include="Assets\OtherAssets\Standard Assets\CrossPlatformInput\Scripts\VirtualInput.cs" />
      <Compile Include="Assets\OtherAssets\Standard Assets\Vehicles\Car\Scripts\Suspension.cs" />
      <Compile Include="Assets\OtherAssets\Standard Assets\Vehicles\Car\Scripts\CarController.cs" />
+     <Compile Include="Assets\Scrips\NodeExtensions.cs" />
      <Compile Include="Assets\Scrips\DroneController.cs" />
      <Compile Include="Assets\OtherAssets\Standard Assets\Vehicles\Car\Scripts\BrakeLight.cs" />
      <Compile Include="Assets\Scrips\FollowDrone.cs" />
@@ -70,9 +71,11 @@
      <Compile Include="Assets\OtherAssets\Standard Assets\CrossPlatformInput\Scripts\Joystick.cs" />
      <Compile Include="Assets\Scrips\CarAI.cs" />
      <Compile Include="Assets\OtherAssets\Standard Assets\CrossPlatformInput\Scripts\TiltInput.cs" />
+     <Compile Include="Assets\Scrips\Node.cs" />
      <Compile Include="Assets\Scrips\RandomMovement.cs" />
      <Compile Include="Assets\OtherAssets\Standard Assets\Vehicles\Car\Scripts\CarAIControl.cs" />
      <Compile Include="Assets\Scrips\TerrainManager.cs" />
+     <Compile Include="Assets\Scrips\Path.cs" />
      <Compile Include="Assets\OtherAssets\Standard Assets\CrossPlatformInput\Scripts\PlatformSpecific\StandaloneInput.cs" />
      <Compile Include="Assets\OtherAssets\Standard Assets\Vehicles\Car\Scripts\SkidTrail.cs" />
      <Compile Include="Assets\Scrips\RotateObject.cs" />
