@@ -397,7 +397,7 @@ namespace Scrips
             Debug.Log("Steering:" + steering + " Acceleration:" + acceleration + " Velo:" + my_rigidbody.velocity.magnitude + "max_speed:" + max_speed);
             
             // start to break when approaching target
-            if (goal_distance < 15)
+            if (goal_distance < 10)
             {
                 Debug.Log("Close enough, stopping");
                 m_Car.Move(steering, 0f, 1f, 1f);
