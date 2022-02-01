@@ -1,4 +1,5 @@
-﻿using System.Collections;
+﻿using System;
+using System.Collections;
 using System.Collections.Generic;
 using UnityEngine;
 
@@ -36,6 +37,7 @@ public class GameManager : MonoBehaviour {
             {
                 completion_time = Time.time - start_time;
                 finished = true;
+                Debug.Log($"Finished in: {completion_time}s");
             }
         }
 
