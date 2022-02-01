@@ -1,10 +1,9 @@
-﻿using System.Collections;
+﻿using System;
 using System.Collections.Generic;
 using UnityEngine;
-using System;
+using UnityStandardAssets.Vehicles.Car;
 
-
-namespace UnityStandardAssets.Vehicles.Car
+namespace Scrips
 {
     [RequireComponent(typeof(CarController))]
     public class CarAI : MonoBehaviour

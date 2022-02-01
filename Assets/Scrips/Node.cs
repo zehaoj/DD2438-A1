@@ -3,7 +3,7 @@ using System.Collections;
 using System.Collections.Generic;
 using System.Linq;
 using System.Text;
-namespace UnityStandardAssets.Vehicles.Car
+namespace Scrips
 {
     public class Node<T> : IEqualityComparer, IEnumerable<T>, IEnumerable<Node<T>>
         {
