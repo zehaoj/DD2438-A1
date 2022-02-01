@@ -1,5 +1,6 @@
 ﻿using System;
 using System.Collections.Generic;
+using System.Linq;
 using UnityEngine;
 using UnityStandardAssets.Vehicles.Car;
 
@@ -204,23 +205,28 @@ namespace Scrips
                 Vector3 wayPoint = FindWayPoint(parentPoint, randomPoint);
                 //Debug.DrawLine(start_pos, wayPoint, Color.green, 100f);
 
-                bool onObstacle = CheckObstacleStatus(wayPoint);
+                bool onObstacle = CheckObstaclePoint(wayPoint);
                 if (!onObstacle)
                 {
-                    currNode = newParent.Add(wayPoint);
-                    foreach (var node in tree.All.Values())
+                    
+                    bool edgeOnObstacle =CheckObstacleEdge(parentPoint, wayPoint);
+                    if (!edgeOnObstacle)
                     {
-                        Debug.DrawLine(newParent.Value, wayPoint, Color.blue, 100f);
+                        currNode = newParent.Add(wayPoint);
+                        foreach (var node in tree.All.Values())
+                        {
+                            Debug.DrawLine(newParent.Value, wayPoint, Color.blue, 100f);
                         
-                    }
-                    distanceGoal = Vector3.Distance(wayPoint, goal_pos);
-                    if (distanceGoal < distanceThreshold)
-                    {
-                        Debug.Log(String.Format("Found goal in {0} iterations.",
-                            iter));
-                        finalNode = currNode;
-                        pathFound = true;
+                        }
+                        distanceGoal = Vector3.Distance(wayPoint, goal_pos);
+                        if (distanceGoal < distanceThreshold)
+                        {
+                            Debug.Log(String.Format("Found goal in {0} iterations.",
+                                iter));
+                            finalNode = currNode;
+                            pathFound = true;
 
+                        }
                     }
                 }
             }
@@ -248,7 +254,7 @@ namespace Scrips
             {
                 randomPoint = new Vector3(UnityEngine.Random.Range(xLow, xHigh), 0,
                     UnityEngine.Random.Range(zLow, zHigh));
-                onObstacle = CheckObstacleStatus(randomPoint);
+                onObstacle = CheckObstaclePoint(randomPoint);
             }
             return randomPoint;
         }
@@ -269,7 +275,7 @@ namespace Scrips
             float zDistance = pointB.z - pointA.z;
             return (xDistance, zDistance);
         }
-        public bool CheckObstacleStatus(Vector3 point)
+        public bool CheckObstaclePoint(Vector3 point)
         {
             int i = terrain_manager.myInfo.get_i_index(point.x);
             int j = terrain_manager.myInfo.get_j_index(point.z);
@@ -279,6 +285,24 @@ namespace Scrips
                 return false;
             }
             return true;
+        }
+
+        public bool CheckObstacleEdge(Vector3 startPoint, Vector3 endPoint)
+        {
+            float dist = Vector3.Distance(startPoint, endPoint);
+            for (float d = 0 ; d <= 1 ; d += 1f / dist)
+            {
+                Vector3 edgePoint = Vector3.Lerp(startPoint, endPoint, d);
+                int i = terrain_manager.myInfo.get_i_index(edgePoint.x);
+                int j = terrain_manager.myInfo.get_j_index(edgePoint.z);
+                float obstacle = terrain_manager.myInfo.traversability[i, j];// 1.0 if there is an obstacle on point and otherwise 0.0 
+                if (obstacle == 1.0)
+                {
+                    return true;
+                }
+            }
+            
+            return false;
         }
 
         // function used to find radius given three points
