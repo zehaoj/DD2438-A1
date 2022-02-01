@@ -3,6 +3,7 @@ using System.Collections.Generic;
 using System.Linq;
 using UnityEngine;
 using UnityStandardAssets.Vehicles.Car;
+using Random = System.Random;
 
 namespace Scrips
 {
@@ -249,11 +250,21 @@ namespace Scrips
         {
             Vector3 randomPoint = new Vector3(0,0,0);
             bool onObstacle = true;
+            Random random = new Random();
             
             while (onObstacle)
             {
-                randomPoint = new Vector3(UnityEngine.Random.Range(xLow, xHigh), 0,
-                    UnityEngine.Random.Range(zLow, zHigh));
+                int goalProb = random.Next(1, 101);
+                Debug.Log($"goalProb: {goalProb}");
+                if (goalProb < 20)
+                {
+                    randomPoint = goal_pos;
+                }
+                else
+                {
+                    randomPoint = new Vector3(UnityEngine.Random.Range(xLow, xHigh), 0,
+                        UnityEngine.Random.Range(zLow, zHigh));
+                }
                 onObstacle = CheckObstaclePoint(randomPoint);
             }
             return randomPoint;
