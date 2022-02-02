@@ -556,13 +556,16 @@ namespace Scrips
             // at start and end, drive slow to prevent sliding
             // max speed is adjusted by the curvature of the point
             // that is to slow down when turning and speed up when there's straight lines
+            bool just_start = false;
             if (((float) next_waypoint_idx < 0.1 * (float) my_path.Count) || ((float) next_waypoint_idx > 0.9 * (float) my_path.Count))
             {
-                max_speed = 5f;
+                max_speed = 4f;
+                just_start = true;
             }
-            else if (((float) next_waypoint_idx < 0.2 * (float) my_path.Count) || ((float) next_waypoint_idx > 0.8 * (float) my_path.Count))
+            else if (((float) next_waypoint_idx < 0.2 * (float) my_path.Count))
             {
-                max_speed = 10f;
+                max_speed = 8f;
+                just_start = true;
             }
             else
             {
@@ -586,10 +589,10 @@ namespace Scrips
             }
             else
             {
-                if (Math.Abs(steering) > 3)
-                    m_Car.Move(steering, Math.Min(3f, acceleration), 0f, 0f);
+                if (just_start)
+                    m_Car.Move(steering, Math.Min(3f, acceleration), acceleration, 0f);
                 else
-                    m_Car.Move(steering, Math.Min(10f, acceleration), 0f, 0f);
+                    m_Car.Move(steering, Math.Min(8f, acceleration), acceleration, 0f);
             }
         }
     }
