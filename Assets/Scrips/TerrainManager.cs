@@ -153,8 +153,8 @@ public class TerrainInfo
 
 public void ExpandTerrain()
     {
-        int expand_x_ratio = (int)System.Math.Ceiling(30f / x_N);
-        int expand_z_ratio = (int)System.Math.Ceiling(30f / z_N);
+        int expand_x_ratio = (int)System.Math.Ceiling(200f / x_N);
+        int expand_z_ratio = (int)System.Math.Ceiling(200f / z_N);
 
         expanded_traversability = new float[x_N * expand_x_ratio, z_N * expand_z_ratio];
 
@@ -173,8 +173,8 @@ public void ExpandTerrain()
     {
         float x_step = (x_high - x_low) / x_N;
         float z_step = (z_high - z_low) / z_N;
-        int nearby_x = (int)System.Math.Ceiling(1f / x_step);
-        int nearby_z = (int)System.Math.Ceiling(1f / z_step);
+        int nearby_x = (int)System.Math.Ceiling(3.0f / x_step);
+        int nearby_z = (int)System.Math.Ceiling(3.0f / z_step);
         if (expanded_traversability[i, j] > 0) {
             return true;
         }

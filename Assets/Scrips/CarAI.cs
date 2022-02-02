@@ -26,6 +26,8 @@ namespace Scrips
         public float k_p = 0.5f;
         public float k_d = 0.5f;
 
+        public bool start_turn = false;
+
         TerrainManager terrain_manager;
 
         List<Vector3> my_path = new List<Vector3>();
@@ -91,9 +93,9 @@ namespace Scrips
             {
                 Debug.Log("Start smoothing");
 
-                float tolerance = 0.001f;
+                float tolerance = 0.1f;
                 float change = tolerance;
-                float b = 0.8f;
+                float b = 0.7f;
                 float a = 1 - b;
 
                 float[,] smooth_path = new float[injected_path.Count, 2];
@@ -125,14 +127,6 @@ namespace Scrips
                 {
                     my_path.Add(new Vector3(smooth_path[i, 0], 0, smooth_path[i, 1]));
                 }
-                // old_wp = start_pos;
-                // foreach (var wp in my_path2)
-                // {
-                //     Debug.DrawLine(old_wp, wp, Color.yellow, 100f);
-                //     old_wp = wp;
-                // }
-                // my_path = injected_path;
-
             } else {
                 my_path = injected_path;
             }
@@ -193,6 +187,8 @@ namespace Scrips
             while (pathFound == false)
             {
                 iter += 1;
+                if (iter > 10000)
+                    pathFound = true;
                 // Pick a random position, find a waypoint between it and a node and add it to the tree
                 Vector3 randomPoint = FindRandomPoint(xLow, xHigh, zLow, zHigh, goal_pos);
                 //Debug.DrawLine(start_pos, randomPoint, Color.red, 100f);
@@ -453,8 +449,11 @@ namespace Scrips
                 Vector3 edgePoint = Vector3.Lerp(startPoint, endPoint, d);
                 int i = terrain_manager.myInfo.get_i_index(edgePoint.x);
                 int j = terrain_manager.myInfo.get_j_index(edgePoint.z);
-                float obstacle = terrain_manager.myInfo.expanded_traversability[i, j];// 1.0 if there is an obstacle on point and otherwise 0.0 
-                if (obstacle == 1.0)
+                // float obstacle = terrain_manager.myInfo.expanded_traversability[i, j];// 1.0 if there is an obstacle on point and otherwise 0.0 
+                bool obstacle = terrain_manager.myInfo.CheckObs(i, j);
+
+                // if (obstacle == 1.0)
+                if (obstacle)
                 {
                     return true;
                 }
@@ -528,14 +527,29 @@ namespace Scrips
             if (Physics.Raycast(transform.position + transform.up, transform.TransformDirection(Vector3.forward), out hit, maxRange))
             {
                 Vector3 closestObstacleInFront = transform.TransformDirection(Vector3.forward) * hit.distance;
-                Debug.DrawRay(transform.position, closestObstacleInFront, Color.yellow);
-                Debug.Log("Did Hit");
+                // Debug.DrawRay(transform.position, closestObstacleInFront, Color.yellow);
+                // Debug.Log("Did Hit");
             }
 
             // current car position
             Vector3 car_pos = new Vector3(transform.position.x, 0, transform.position.z);
+
+            float min_Dist = 100000f;
+            int min_idx = next_waypoint_idx;
+
+            for (int idx = next_waypoint_idx; idx < my_path.Count; idx ++)
+            {
+                Vector3 cur_lookahead_position = my_path[idx];
+                float cur_lookahead_dist = Mathf.Sqrt(Mathf.Pow(car_pos[0] - cur_lookahead_position[0], 2) + Mathf.Pow(car_pos[2] - cur_lookahead_position[2], 2));
+                if (cur_lookahead_dist < min_Dist) {
+                    min_idx = idx;
+                    min_Dist = cur_lookahead_dist;
+                }
+            }
             // look ahead waypoint position
+            next_waypoint_idx = min_idx;
             Vector3 lookahead_position = my_path[next_waypoint_idx];
+            Debug.DrawLine(transform.position, my_path[next_waypoint_idx], Color.yellow);
 
             lookahead_dist = Mathf.Sqrt(Mathf.Pow(car_pos[0] - lookahead_position[0], 2) + Mathf.Pow(car_pos[2] - lookahead_position[2], 2));
             goal_distance = Mathf.Sqrt(Mathf.Pow(car_pos[0] - goal_pos[0],2) + Mathf.Pow(car_pos[2] - goal_pos[2], 2));
@@ -557,7 +571,7 @@ namespace Scrips
             // max speed is adjusted by the curvature of the point
             // that is to slow down when turning and speed up when there's straight lines
             bool just_start = false;
-            if (((float) next_waypoint_idx < 0.1 * (float) my_path.Count) || ((float) next_waypoint_idx > 0.9 * (float) my_path.Count))
+            if (((float) next_waypoint_idx < 0.1 * (float) my_path.Count))
             {
                 max_speed = 4f;
                 just_start = true;
@@ -567,9 +581,14 @@ namespace Scrips
                 max_speed = 8f;
                 just_start = true;
             }
+            else if (((float) next_waypoint_idx < 0.3 * (float) my_path.Count))
+            {
+                max_speed = 12f;
+                just_start = true;
+            }
             else
             {
-                max_speed = Math.Min(12f, 1 / path_curvature[next_waypoint_idx - 1]);
+                max_speed = Math.Min(15f, 1 / path_curvature[next_waypoint_idx - 1] - 1);
             }
 
             Vector3 velocity_error = my_rigidbody.velocity * (max_speed - my_rigidbody.velocity.magnitude);
@@ -581,18 +600,30 @@ namespace Scrips
             // this is how you control the car
             Debug.Log("Steering:" + steering + " Acceleration:" + acceleration + " Velo:" + my_rigidbody.velocity.magnitude + "max_speed:" + max_speed);
             
-            // start to break when approaching target
-            if (goal_distance < 10)
-            {
-                Debug.Log("Close enough, stopping");
-                m_Car.Move(steering, 0f, 1f, 1f);
-            }
-            else
-            {
-                if (just_start)
-                    m_Car.Move(steering, Math.Min(3f, acceleration), acceleration, 0f);
+
+            if (Vector3.Angle(transform.forward, lookahead_position - car_pos) > 90F) {
+                Debug.Log("reorient");
+                start_turn = true;
+                m_Car.Move(steering, 3f, 3f, 0f);
+            } else if (start_turn) {
+                if (Vector3.Angle(transform.forward, lookahead_position - car_pos) < 30F)
+                    start_turn = false;
                 else
-                    m_Car.Move(steering, Math.Min(8f, acceleration), acceleration, 0f);
+                    m_Car.Move(steering, 3f, 3f, 0f);
+            } else {
+                // start to break when approaching target
+                if (goal_distance < 10)
+                {
+                    Debug.Log("Close enough, stopping");
+                    m_Car.Move(steering, 0f, 1f, 1f);
+                }
+                else
+                {
+                    if (just_start)
+                        m_Car.Move(steering, Math.Min(3f, acceleration), acceleration, 0f);
+                    else
+                        m_Car.Move(steering, Math.Min(4f, acceleration), acceleration, 0f);
+                }
             }
         }
     }
