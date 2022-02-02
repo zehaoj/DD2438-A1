@@ -41,6 +41,7 @@ public class TerrainManager : MonoBehaviour {
             string myString = myInfo.SaveToString();
             myInfo.WriteDataToFile(myString);
         }
+        myInfo.ExpandTerrain();
 
         myInfo.CreateCubes();
 
@@ -72,6 +73,7 @@ public class TerrainInfo
     public float z_high;
     public int z_N;
     public float[,] traversability;
+    public float[,] expanded_traversability;
 
     public Vector3 start_pos;
     public Vector3 goal_pos;
@@ -149,6 +151,47 @@ public class TerrainInfo
         return z_low + step / 2 + step * j;
     }
 
+public void ExpandTerrain()
+    {
+        int expand_x_ratio = (int)System.Math.Ceiling(30f / x_N);
+        int expand_z_ratio = (int)System.Math.Ceiling(30f / z_N);
+
+        expanded_traversability = new float[x_N * expand_x_ratio, z_N * expand_z_ratio];
+
+        for (int i = 0; i < x_N * expand_x_ratio; i++)
+        {
+            for (int j = 0; j < z_N * expand_z_ratio; j++)
+            {
+                expanded_traversability[i, j] = traversability[i / expand_x_ratio, j / expand_z_ratio];
+            }
+        }
+        x_N *= expand_x_ratio;
+        z_N *= expand_z_ratio;
+    }
+
+    public bool CheckObs(int i, int j)
+    {
+        float x_step = (x_high - x_low) / x_N;
+        float z_step = (z_high - z_low) / z_N;
+        int nearby_x = (int)System.Math.Ceiling(1f / x_step);
+        int nearby_z = (int)System.Math.Ceiling(1f / z_step);
+        if (expanded_traversability[i, j] > 0) {
+            return true;
+        }
+        else {
+            for (int m = i - nearby_x; m <= i + nearby_x; m++)
+            {
+                for (int n = j - nearby_z; n <= j + nearby_z; n++)
+                {
+                    if (expanded_traversability[m, n] > 0) {
+                        return true;
+                    }
+                }
+            }
+            return false;
+        }
+    }
+
     public void CreateCubes()
     {
         float x_step = (x_high - x_low) / x_N;
@@ -157,7 +200,7 @@ public class TerrainInfo
         {
             for (int j = 0; j < z_N; j++)
             {
-                if (traversability[i, j] > 0.5f)
+                if (expanded_traversability[i, j] > 0.5f)
                 {
                     GameObject cube = GameObject.CreatePrimitive(PrimitiveType.Cube);
                     cube.transform.position = new Vector3(get_x_pos(i), 0.0f, get_z_pos(j));

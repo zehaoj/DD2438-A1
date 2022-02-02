@@ -436,8 +436,9 @@ namespace Scrips
         {
             int i = terrain_manager.myInfo.get_i_index(point.x);
             int j = terrain_manager.myInfo.get_j_index(point.z);
-            float obstacle = terrain_manager.myInfo.traversability[i, j];// 1.0 if there is an obstacle on point and otherwise 0.0 
-            if (obstacle == 0)
+            // float obstacle = terrain_manager.myInfo.traversability[i, j];// 1.0 if there is an obstacle on point and otherwise 0.0 
+            bool obstacle = terrain_manager.myInfo.CheckObs(i, j);
+            if (!obstacle)
             {
                 return false;
             }
@@ -452,7 +453,7 @@ namespace Scrips
                 Vector3 edgePoint = Vector3.Lerp(startPoint, endPoint, d);
                 int i = terrain_manager.myInfo.get_i_index(edgePoint.x);
                 int j = terrain_manager.myInfo.get_j_index(edgePoint.z);
-                float obstacle = terrain_manager.myInfo.traversability[i, j];// 1.0 if there is an obstacle on point and otherwise 0.0 
+                float obstacle = terrain_manager.myInfo.expanded_traversability[i, j];// 1.0 if there is an obstacle on point and otherwise 0.0 
                 if (obstacle == 1.0)
                 {
                     return true;
