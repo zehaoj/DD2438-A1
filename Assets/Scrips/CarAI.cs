@@ -54,7 +54,11 @@ namespace Scrips
             // RRT function
             //List<Vector3> ori_my_path = Rrt(start_pos, goal_pos);
             //ori_my_path.Reverse();
+            var watch = new System.Diagnostics.Stopwatch();
+            watch.Start();
             List<Vector3> ori_my_path = BidirectionalRRT(start_pos, goal_pos);
+            watch.Stop();
+            Debug.Log($"Execution Time BidirectionalRRT: {watch.ElapsedMilliseconds} ms");
 
             // Inject waypoints between
             List<Vector3> injected_path = new List<Vector3>();
@@ -257,28 +261,24 @@ namespace Scrips
 
             var forwardTree = new Node<Vector3>(startPoint);
             Node<Vector3> forwardNewParent = forwardTree.Root;
-            Vector3 forwardParentPoint = startPoint;
             Node<Vector3> fMeetNode = null;
             bool forwardTreeTraversal = true;
             
             var backwardTree = new Node<Vector3>(goalPoint);
             Node<Vector3> backwardNewParent = backwardTree.Root;
-            Vector3 backwardParentPoint = goalPoint;
             Node<Vector3> bMeetNode = null;
             bool backwardTreeTraversal = true;
             
             int iter = 0;
             List<Vector3> myPath = new List<Vector3>();
             Node<Vector3> finalNode = null;
-
-
+            
             while (pathFound == false)
             {
                 iter += 1;
-                BuildTree(xLow, xHigh, zLow, zHigh, startPoint, goalPoint, forwardTree, forwardNewParent);
-                BuildTree(xLow, xHigh, zLow, zHigh, goalPoint, startPoint, backwardTree, backwardNewParent);
-
-                (pathFound, fMeetNode, bMeetNode) = FindMeetingPoint(forwardTree, backwardTree, pathFound, iter);
+                Node<Vector3> fLeefNode = BuildTree(xLow, xHigh, zLow, zHigh, startPoint, goalPoint, forwardTree, forwardNewParent);
+                Node<Vector3> bLeefNode = BuildTree(xLow, xHigh, zLow, zHigh, goalPoint, startPoint, backwardTree, backwardNewParent);
+                (pathFound, fMeetNode, bMeetNode) = FindMeetingPoint(forwardTree, backwardTree, pathFound, iter, fLeefNode, bLeefNode);
             }
             // We have found a path to the goal, so now we traverse the tree and find the path nodes
             while (forwardTreeTraversal)
@@ -308,19 +308,36 @@ namespace Scrips
             return myPath;
         }
 
-        public (bool, Node<Vector3>, Node<Vector3>) FindMeetingPoint(Node<Vector3> forwardTree, Node<Vector3> backwardTree, bool pathFound, int iter)
+        public (bool, Node<Vector3>, Node<Vector3>) FindMeetingPoint(Node<Vector3> forwardTree, Node<Vector3> backwardTree, bool pathFound, int iter, Node<Vector3> fLeafNode, Node<Vector3> bLeafNode)
         {
             float distanceThreshold = 4;
-            Node<Vector3> bMeetNode = null;
-            Node<Vector3> fMeetNode = null;
-            foreach (Node<Vector3> fNode in forwardTree.All)
+            Node<Vector3> bMeetNode;
+            Node<Vector3> fMeetNode;
+            if (bLeafNode != null)
             {
-                foreach (Node<Vector3> bNode in backwardTree.All)
+                foreach (Node<Vector3> fNode in forwardTree.All)
                 {
-                    float distanceTrees = Vector3.Distance(fNode.Value, bNode.Value);
+                    float distanceTrees = Vector3.Distance(fNode.Value, bLeafNode.Value);
                     if (distanceTrees < distanceThreshold)
                     {
                         fMeetNode = fNode;
+                        bMeetNode = bLeafNode;
+                        Debug.Log(String.Format("Found goal in {0} iterations.", iter));
+                        pathFound = true;
+                        return (pathFound, fMeetNode, bMeetNode);
+
+                    }
+                }
+            }
+
+            if (fLeafNode != null)
+            {
+                foreach (Node<Vector3> bNode in backwardTree.All)
+                {
+                    float distanceTrees = Vector3.Distance(fLeafNode.Value, bNode.Value);
+                    if (distanceTrees < distanceThreshold)
+                    {
+                        fMeetNode = fLeafNode;
                         bMeetNode = bNode;
                         Debug.Log(String.Format("Found goal in {0} iterations.", iter));
                         pathFound = true;
@@ -329,10 +346,11 @@ namespace Scrips
                     }
                 }
             }
+
             return (pathFound, null, null);
         }
 
-        public void BuildTree(float xLow, float xHigh, float zLow, float zHigh, Vector3 startPoint, Vector3 goalPoint, Node<Vector3> tree, Node<Vector3> newParent)
+        public Node<Vector3> BuildTree(float xLow, float xHigh, float zLow, float zHigh, Vector3 startPoint, Vector3 goalPoint, Node<Vector3> tree, Node<Vector3> newParent)
         {
             Node<Vector3> currNode;
             // Pick a random position, find a waypoint between it and a node and add it to the tree
@@ -367,10 +385,11 @@ namespace Scrips
                         Debug.DrawLine(newParent.Value, wayPoint, Color.blue, 100f);
                         
                     }
+                    return currNode;
                 }
             }
 
-            return;
+            return null;
         }
 
         public Vector3 FindRandomPoint(float xLow, float xHigh, float zLow, float zHigh, Vector3 goalPoint)
