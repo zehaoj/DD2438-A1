@@ -20,6 +20,8 @@ namespace Scrips
 
         public float goal_distance;
         public float lookahead_dist;
+        public float start_time;
+        public int speedup_stratagy;
         public Vector3 goal_pos;
         Rigidbody my_rigidbody;
 
@@ -51,8 +53,13 @@ namespace Scrips
 
             Vector3 start_pos = terrain_manager.myInfo.start_pos;
             goal_pos = terrain_manager.myInfo.goal_pos;
+            float dist_begin = Mathf.Sqrt(Mathf.Pow(start_pos[0] - goal_pos[0],2) + Mathf.Pow(start_pos[2] - goal_pos[2], 2));
+            Debug.Log("dis_begin" + dist_begin);
+            if (dist_begin > 100)
+                speedup_stratagy = 2;
+            else
+                speedup_stratagy = 1;
 
-            
             // RRT function
             //List<Vector3> ori_my_path = Rrt(start_pos, goal_pos);
             //ori_my_path.Reverse();
@@ -93,9 +100,9 @@ namespace Scrips
             {
                 Debug.Log("Start smoothing");
 
-                float tolerance = 0.1f;
+                float tolerance = 0.01f;
                 float change = tolerance;
-                float b = 0.7f;
+                float b = 0.8f;
                 float a = 1 - b;
 
                 float[,] smooth_path = new float[injected_path.Count, 2];
@@ -116,9 +123,15 @@ namespace Scrips
                         float last_time_x = smooth_path[i, 0];
                         float last_time_y = smooth_path[i, 1];
 
-                        smooth_path[i, 0] += a * (injected_path[i][0] - smooth_path[i, 0]) + b * (smooth_path[i - 1, 0] + smooth_path[i+1, 0] - 2 * smooth_path[i, 0]);
-                        smooth_path[i, 1] += a * (injected_path[i][2] - smooth_path[i, 1]) + b * (smooth_path[i - 1, 1] + smooth_path[i+1, 1] - 2 * smooth_path[i, 1]);
-                        
+                        float tmp_x = smooth_path[i, 0] + a * (injected_path[i][0] - smooth_path[i, 0]) + b * (smooth_path[i - 1, 0] + smooth_path[i+1, 0] - 2 * smooth_path[i, 0]);
+                        float tmp_y = smooth_path[i, 1] + a * (injected_path[i][2] - smooth_path[i, 1]) + b * (smooth_path[i - 1, 1] + smooth_path[i+1, 1] - 2 * smooth_path[i, 1]);
+                        int tmp_i = terrain_manager.myInfo.get_i_index(tmp_x);
+                        int tmp_j = terrain_manager.myInfo.get_j_index(tmp_y);
+
+                        if (!terrain_manager.myInfo.CheckObs(tmp_i, tmp_j)) {
+                            smooth_path[i, 0] = tmp_x;
+                            smooth_path[i, 1] = tmp_y;
+                        }
                         change += Math.Abs(smooth_path[i, 0] + smooth_path[i, 1] - last_time_x - last_time_y);
                     }
                 }
@@ -162,6 +175,7 @@ namespace Scrips
                 Debug.DrawLine(old_wp, wp, Color.red, 100f);
                 old_wp = wp;
             }
+            start_time = Time.time;
         }
 
         public List<Vector3> Rrt(Vector3 start_pos, Vector3 goal_pos)
@@ -555,8 +569,6 @@ namespace Scrips
             goal_distance = Mathf.Sqrt(Mathf.Pow(car_pos[0] - goal_pos[0],2) + Mathf.Pow(car_pos[2] - goal_pos[2], 2));
         
             // if close to the look ahead waypoint, choose next waypoint to look next
-            // TODO
-            // change to find the closest point
             if ((lookahead_dist < 5) && (next_waypoint_idx < my_path.Count - 1))
             {
                 next_waypoint_idx ++;
@@ -567,28 +579,19 @@ namespace Scrips
             // a PD-controller to get desired velocity
             Vector3 position_error = lookahead_position - transform.position;
 
-            // at start and end, drive slow to prevent sliding
-            // max speed is adjusted by the curvature of the point
-            // that is to slow down when turning and speed up when there's straight lines
-            bool just_start = false;
-            if (((float) next_waypoint_idx < 0.1 * (float) my_path.Count))
-            {
-                max_speed = 4f;
-                just_start = true;
-            }
-            else if (((float) next_waypoint_idx < 0.2 * (float) my_path.Count))
-            {
-                max_speed = 8f;
-                just_start = true;
-            }
-            else if (((float) next_waypoint_idx < 0.3 * (float) my_path.Count))
-            {
-                max_speed = 12f;
-                just_start = true;
-            }
-            else
-            {
-                max_speed = Math.Min(15f, 1 / path_curvature[next_waypoint_idx - 1] - 1);
+
+            if (speedup_stratagy == 1) {
+                // 1. speed up to fullest when finishing 20% of the whole path
+                // suitable for short dist
+                float driven_percentage = (float) ((next_waypoint_idx - 1) / (float) my_path.Count);
+                max_speed = (float) Math.Min(15f, 15f * (driven_percentage / 0.2));
+                max_speed = Math.Min(max_speed, 1f / path_curvature[next_waypoint_idx]);
+            } else if (speedup_stratagy == 2) {
+                // 2. speed up to fullest within 10 seconds
+                // suitable for long dist
+                float driven_time_percentage = (float) ((Time.time - start_time) / 10f);
+                max_speed = (float) Math.Min(15f, 15f * driven_time_percentage);
+                max_speed = Math.Min(max_speed, 1f / path_curvature[next_waypoint_idx]);
             }
 
             Vector3 velocity_error = my_rigidbody.velocity * (max_speed - my_rigidbody.velocity.magnitude);
@@ -604,12 +607,15 @@ namespace Scrips
             if (Vector3.Angle(transform.forward, lookahead_position - car_pos) > 90F) {
                 Debug.Log("reorient");
                 start_turn = true;
-                m_Car.Move(steering, 3f, 3f, 0f);
+                int sign = steering > 0 ? 10 : -10;
+                m_Car.Move(sign, 1f, 3f, 0f);
             } else if (start_turn) {
                 if (Vector3.Angle(transform.forward, lookahead_position - car_pos) < 30F)
                     start_turn = false;
-                else
-                    m_Car.Move(steering, 3f, 3f, 0f);
+                else {
+                    int sign = steering > 0 ? 10 : -10;
+                    m_Car.Move(sign, 1f, 3f, 0f);
+                }
             } else {
                 // start to break when approaching target
                 if (goal_distance < 10)
@@ -619,10 +625,8 @@ namespace Scrips
                 }
                 else
                 {
-                    if (just_start)
-                        m_Car.Move(steering, Math.Min(3f, acceleration), acceleration, 0f);
-                    else
-                        m_Car.Move(steering, Math.Min(4f, acceleration), acceleration, 0f);
+                    int sign = acceleration > 0 ? 1 : -1;
+                    m_Car.Move(steering, sign * Math.Min(4f, Math.Abs(acceleration)), acceleration, 0f);
                 }
             }
         }
