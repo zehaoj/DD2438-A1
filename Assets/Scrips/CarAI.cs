@@ -18,11 +18,18 @@ namespace Scrips
 
         public float max_speed;
 
+        public float max_speed_last_time = 0f;
+
         public float goal_distance;
+
         public float lookahead_dist;
+
         public float start_time;
+
         public int speedup_stratagy;
+
         public Vector3 goal_pos;
+
         Rigidbody my_rigidbody;
 
         public float k_p = 0.5f;
@@ -585,14 +592,29 @@ namespace Scrips
                 // suitable for short dist
                 float driven_percentage = (float) ((next_waypoint_idx - 1) / (float) my_path.Count);
                 max_speed = (float) Math.Min(15f, 15f * (driven_percentage / 0.2));
-                max_speed = Math.Min(max_speed, 1f / path_curvature[next_waypoint_idx]);
             } else if (speedup_stratagy == 2) {
                 // 2. speed up to fullest within 10 seconds
                 // suitable for long dist
                 float driven_time_percentage = (float) ((Time.time - start_time) / 10f);
                 max_speed = (float) Math.Min(15f, 15f * driven_time_percentage);
-                max_speed = Math.Min(max_speed, 1f / path_curvature[next_waypoint_idx]);
             }
+
+            max_speed = Math.Min(max_speed, 1f / path_curvature[next_waypoint_idx]);
+
+            // look ahead for sharp turns in the far front
+            if (next_waypoint_idx < my_path.Count - 6) {
+                for (int lookahead_idx = 0; lookahead_idx < 4; lookahead_idx ++)
+                {
+                    Vector3 cur_path = my_path[next_waypoint_idx + lookahead_idx] - my_path[next_waypoint_idx + lookahead_idx - 1];
+                    Vector3 next_path = my_path[next_waypoint_idx + lookahead_idx + 1] - my_path[next_waypoint_idx + lookahead_idx];
+                    if (Vector3.Angle(cur_path, next_path) > 45f) {
+                        max_speed = Math.Min(max_speed, 5f);
+                    }
+                }
+            }
+
+            max_speed = Math.Min(max_speed, max_speed_last_time + 0.1f);
+            max_speed_last_time = max_speed;
 
             Vector3 velocity_error = my_rigidbody.velocity * (max_speed - my_rigidbody.velocity.magnitude);
             Vector3 desired_acceleration = k_p * position_error + k_d * velocity_error;
