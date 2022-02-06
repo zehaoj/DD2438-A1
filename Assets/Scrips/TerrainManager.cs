@@ -74,9 +74,15 @@ public class TerrainInfo
     public int z_N;
     public float[,] traversability;
     public float[,] expanded_traversability;
+    public float x_step;
+    public float z_step;
+    public int nearby_x;
+    public int nearby_z;
 
     public Vector3 start_pos;
     public Vector3 goal_pos;
+    public int goal_i;
+    public int goal_j;
 
     
     public void TerrainInfo2()
@@ -167,29 +173,125 @@ public void ExpandTerrain()
         }
         x_N *= expand_x_ratio;
         z_N *= expand_z_ratio;
+        goal_i = get_i_index(goal_pos[0]);
+        goal_j = get_j_index(goal_pos[2]);
+        x_step = (x_high - x_low) / x_N;
+        z_step = (z_high - z_low) / z_N;
+        nearby_x = (int)System.Math.Ceiling(4.0f / x_step);
+        nearby_z = (int)System.Math.Ceiling(4.0f / z_step);
+
     }
 
     public bool CheckObs(int i, int j)
     {
-        float x_step = (x_high - x_low) / x_N;
-        float z_step = (z_high - z_low) / z_N;
-        int nearby_x = (int)System.Math.Ceiling(3.0f / x_step);
-        int nearby_z = (int)System.Math.Ceiling(3.0f / z_step);
         if (expanded_traversability[i, j] > 0) {
             return true;
-        }
-        else {
-            for (int m = i - nearby_x; m <= i + nearby_x; m++)
-            {
-                for (int n = j - nearby_z; n <= j + nearby_z; n++)
-                {
-                    if (expanded_traversability[m, n] > 0) {
-                        return true;
-                    }
-                }
-            }
+        // }
+        // else if ((System.Math.Abs(i - goal_i) + System.Math.Abs(j - goal_j)) > 20) {
+        //     for (int m = i - nearby_x; m <= i + nearby_x; m++)
+        //     {
+        //         for (int n = j - nearby_z; n <= j + nearby_z; n++)
+        //         {
+        //             if (expanded_traversability[m, n] > 0) {
+        //                 return true;
+        //             }
+        //         }
+        //     }
+        //     return false;
+        } else {
             return false;
         }
+    }
+
+    public int CheckObsUpandDown(int i, int j)
+    {
+        int up_obs_dist = 0;
+        int down_obs_dist = 0;
+
+        for (int diff = 1; diff < nearby_z; diff++)
+        {
+            if (expanded_traversability[i, j + diff] > 0) {
+                up_obs_dist = diff;
+                break;
+            }
+        }
+        for (int diff = 1; diff < nearby_z; diff++)
+        {
+            if (expanded_traversability[i, j - diff] > 0) {
+                down_obs_dist = diff;
+                break;
+            }
+        }
+        if ((up_obs_dist == 0) && (down_obs_dist == 0))
+            return 0;
+        if ((up_obs_dist == 0) && (down_obs_dist > 0))
+            return (nearby_z - down_obs_dist);
+        if ((up_obs_dist >= 0) && (down_obs_dist == 0))
+            return (up_obs_dist - nearby_z);
+        return 0;
+        // TODO
+        // if both have obs, redesign path
+    }
+
+    public int CheckObsLeftandRight(int i, int j)
+    {
+        int left_obs_dist = 0;
+        int right_obs_dist = 0;
+
+        for (int diff = 1; diff < nearby_x; diff++)
+        {
+            if (expanded_traversability[i - diff, j] > 0) {
+                left_obs_dist = diff;
+                break;
+            }
+        }
+        for (int diff = 1; diff < nearby_x; diff++)
+        {
+            if (expanded_traversability[i + diff, j] > 0) {
+                right_obs_dist = diff;
+                break;
+            }
+        }
+        if ((left_obs_dist == 0) && (right_obs_dist == 0))
+            return 0;
+        if ((left_obs_dist == 0) && (right_obs_dist > 0))
+            return (right_obs_dist - nearby_x);
+        if ((left_obs_dist >= 0) && (right_obs_dist == 0))
+            return (nearby_x - left_obs_dist);
+        return 0;
+        // TODO
+        // if both have obs, redesign path
+    }
+
+    // check direction diagonal from lower left to upper right
+    public int CheckObsDiagonalUp(int i, int j)
+    {
+        int left_down_obs_dist = 0;
+        int right_up_obs_dist = 0;
+
+        for (int diff = 1; diff < nearby_x; diff++)
+        {
+            if (expanded_traversability[i - diff, j - diff] > 0) {
+                left_down_obs_dist = diff;
+                break;
+            }
+        }
+        for (int diff = 1; diff < nearby_x; diff++)
+        {
+            if (expanded_traversability[i + diff, j + diff] > 0) {
+                right_up_obs_dist = diff;
+                break;
+            }
+        }
+        if ((left_down_obs_dist == 0) && (right_up_obs_dist == 0))
+            return 0;
+        if ((left_down_obs_dist == 0) && (right_up_obs_dist > 0))
+            return (right_up_obs_dist - nearby_x);
+        if ((left_down_obs_dist >= 0) && (right_up_obs_dist == 0))
+            return (nearby_x - left_down_obs_dist);
+        return 0;
+        // TODO
+        // if both have obs, redesign path
     }
 
     public void CreateCubes()
