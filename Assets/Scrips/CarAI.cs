@@ -66,7 +66,7 @@ namespace Scrips
             bool point_move_away = true;
 
             // Plan your path here
-
+            List<Vector3> my_path_tmp = new List<Vector3>();
             my_rigidbody = GetComponent<Rigidbody>();
 
             Vector3 start_pos = terrain_manager.myInfo.start_pos;
@@ -108,22 +108,22 @@ namespace Scrips
             // make the waypoints smooth
             if (point_smoothing)
             {
-                my_path = PathSmoothing(injected_path);
+                my_path_tmp = PathSmoothing(injected_path);
             } else {
-                my_path = injected_path;
+                my_path_tmp = injected_path;
             }
 
             // DrawPath(my_path, 1);
             
             if (point_move_away)
             {
-                my_path = PathMoveAway(my_path);
+                my_path_tmp = PathMoveAway(my_path_tmp);
             }
 
-            DrawPath(my_path, 2);
+            // DrawPath(my_path_tmp, 2);
         
             
-            my_path = PathSmoothing(my_path);
+            my_path_tmp = PathSmoothing(my_path_tmp);
             // my_path = PathMoveAway(my_path);
 
 
@@ -133,6 +133,16 @@ namespace Scrips
             // DrawPath(my_path, 2);
             // my_path = PathSmoothing(my_path, 0.8f);
 
+
+
+            for (int i = 0; i < my_path_tmp.Count; i++) {
+                int m = terrain_manager.myInfo.get_i_index(my_path_tmp[i][0]);
+                int n = terrain_manager.myInfo.get_j_index(my_path_tmp[i][2]);
+                if (!terrain_manager.myInfo.CheckObs(m, n)) {
+                    // Debug.Log("aeoijgoeajgoia");
+                    my_path.Add(my_path_tmp[i]);
+                }
+            }
             DrawPath(my_path, 1);
 
 
@@ -617,12 +627,27 @@ namespace Scrips
 
             // this is how you access information about the terrain from a simulated laser range finder
             RaycastHit hit;
-            float maxRange = 50f;
+            float maxRange = 5f;
+            bool front_wall = false;
+            bool left_front_wall = false;
+            bool right_front_wall = false;
             if (Physics.Raycast(transform.position + transform.up, transform.TransformDirection(Vector3.forward), out hit, maxRange))
             {
                 Vector3 closestObstacleInFront = transform.TransformDirection(Vector3.forward) * hit.distance;
-                // Debug.DrawRay(transform.position, closestObstacleInFront, Color.yellow);
-                // Debug.Log("Did Hit");
+                front_wall = true;
+                Debug.DrawRay(transform.position, closestObstacleInFront, Color.yellow);
+            }
+            if (Physics.Raycast(transform.position + transform.up, transform.TransformDirection(Vector3.forward + Vector3.left), out hit, maxRange))
+            {
+                Vector3 closestObstacleInFront = transform.TransformDirection(Vector3.forward + Vector3.left) * hit.distance;
+                left_front_wall = true;
+                Debug.DrawRay(transform.position, closestObstacleInFront, Color.yellow);
+            }
+            if (Physics.Raycast(transform.position + transform.up, transform.TransformDirection(Vector3.forward + Vector3.right), out hit, maxRange))
+            {
+                Vector3 closestObstacleInFront = transform.TransformDirection(Vector3.forward + Vector3.right) * hit.distance;
+                right_front_wall = true;
+                Debug.DrawRay(transform.position, closestObstacleInFront, Color.yellow);
             }
 
 
@@ -776,8 +801,14 @@ namespace Scrips
                     }
                     else
                     {
-                        int sign = acceleration > 0 ? 1 : -1;
-                        m_Car.Move(steering, sign * Math.Min(4f, Math.Abs(acceleration)), acceleration, 0f);
+                        if ((left_front_wall) && (!right_front_wall))
+                            m_Car.Move(1, 0.5f, acceleration, 0f);
+                        else if ((!left_front_wall) && (right_front_wall))
+                            m_Car.Move(-1, 0.5f, acceleration, 0f);
+                        else {
+                            int sign = acceleration > 0 ? 1 : -1;
+                            m_Car.Move(steering, sign * Math.Min(4f, Math.Abs(acceleration)), acceleration, 0f);
+                        }
                     }
                 }
                 real_speed_last_time = my_rigidbody.velocity.magnitude;
