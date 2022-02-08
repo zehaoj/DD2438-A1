@@ -627,14 +627,22 @@ namespace Scrips
 
             // this is how you access information about the terrain from a simulated laser range finder
             RaycastHit hit;
+            float longRange = 40f;
             float maxRange = 5f;
             bool front_wall = false;
+            bool up_front_wall = false;
             bool left_front_wall = false;
             bool right_front_wall = false;
             if (Physics.Raycast(transform.position + transform.up, transform.TransformDirection(Vector3.forward), out hit, maxRange))
             {
                 Vector3 closestObstacleInFront = transform.TransformDirection(Vector3.forward) * hit.distance;
                 front_wall = true;
+                Debug.DrawRay(transform.position, closestObstacleInFront, Color.yellow);
+            }
+            if (Physics.Raycast(transform.position + transform.up, transform.TransformDirection(Vector3.forward), out hit, longRange))
+            {
+                Vector3 closestObstacleInFront = transform.TransformDirection(Vector3.forward) * hit.distance;
+                up_front_wall = true;
                 Debug.DrawRay(transform.position, closestObstacleInFront, Color.yellow);
             }
             if (Physics.Raycast(transform.position + transform.up, transform.TransformDirection(Vector3.forward + Vector3.left), out hit, maxRange))
@@ -706,7 +714,24 @@ namespace Scrips
                 goal_distance = Mathf.Sqrt(Mathf.Pow(car_pos[0] - goal_pos[0],2) + Mathf.Pow(car_pos[2] - goal_pos[2], 2));
             
                 // if close to the look ahead waypoint, choose next waypoint to look next
-                while ((lookahead_dist < 8) && (next_waypoint_idx < my_path.Count - 1))
+                int max_lookahead_dist;
+
+                float avg_curvature = 0f;
+                for (int idx = next_waypoint_idx; idx < Math.Min(next_waypoint_idx + 10, my_path.Count); idx++)
+                {
+                    avg_curvature += path_curvature[idx];
+                }
+                avg_curvature /= 10;
+                Debug.Log("avg curv: " + avg_curvature);
+
+
+                bool no_full_speed = ((up_front_wall) || (avg_curvature > 0.07f));
+                if (no_full_speed)
+                    max_lookahead_dist = 8;
+                else
+                    max_lookahead_dist = 16;
+
+                while ((lookahead_dist < max_lookahead_dist) && (next_waypoint_idx < my_path.Count - 1))
                 {
                     if (CheckObstacleEdge(car_pos, my_path[next_waypoint_idx])) {
                         next_waypoint_idx --;
@@ -724,7 +749,7 @@ namespace Scrips
                 // a PD-controller to get desired velocity
                 Vector3 position_error = lookahead_position - transform.position;
 
-                float full_speed = 15f;
+                float full_speed = 20f;
                 if (speedup_stratagy == 1) {
                     // 1. speed up to fullest when finishing 20% of the whole path
                     // suitable for short dist
@@ -737,7 +762,8 @@ namespace Scrips
                     max_speed = (float) Math.Min(full_speed, full_speed * driven_time_percentage);
                 }
 
-                max_speed = Math.Min(max_speed, Math.Max(1f / path_curvature[next_waypoint_idx], 3));
+                if (no_full_speed)
+                    max_speed = Math.Min(max_speed, Math.Max(1f / path_curvature[next_waypoint_idx], 3));
 
 
                 // just finished going back, speed up slowly
