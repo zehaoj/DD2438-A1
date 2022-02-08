@@ -1,4 +1,4 @@
-﻿using System;
+using System;
 using System.Collections.Generic;
 using System.Linq;
 using UnityEngine;
@@ -88,16 +88,20 @@ namespace Scrips
 
             if (point_injection)
             {
-                injected_path = PathInjection(ori_my_path, 1f);
+                injected_path = PathInjection(ori_my_path, 3f);
             } else {
                 injected_path = ori_my_path;
             }
+
+            // DrawPath(injected_path, 1);
 
             // make the waypoints away from walls
             if (point_move_away)
             {
                 injected_path = PathMoveAway(injected_path);
             }
+            
+            // DrawPath(injected_path, 3);
 
             // make the waypoints smooth
             if (point_smoothing)
@@ -106,13 +110,31 @@ namespace Scrips
             } else {
                 my_path = injected_path;
             }
+
+            // DrawPath(my_path, 1);
             
             if (point_move_away)
             {
                 my_path = PathMoveAway(my_path);
             }
+
+            // DrawPath(my_path, 2);
+        
             
             my_path = PathSmoothing(my_path);
+            // my_path = PathMoveAway(my_path);
+
+
+            // my_path = injected_path;
+            DrawPath(my_path, 1);
+
+
+
+            // TODO
+            // 1. final detection
+            // 2. flexible lookahead dist
+
+            // for (int i = 0; i < my_path.C)
 
             // int idx_now = 0;
             // int next_idx = 0;
@@ -140,14 +162,6 @@ namespace Scrips
 
 
             // my_path = PathInjection(my_path, 0.5f);
-
-
-            Vector3 old_wp = start_pos;
-            foreach (var wp in my_path)
-            {
-                Debug.DrawLine(old_wp, wp, Color.blue, 100f);
-                old_wp = wp;
-            }
             
             // find the curvature of each points
             float max_cur = 0f;
@@ -175,6 +189,21 @@ namespace Scrips
         }
 
 
+        public void DrawPath(List<Vector3> draw_path, int coler) {
+            Vector3 old_wp = terrain_manager.myInfo.start_pos;
+            foreach (var wp in draw_path)
+            {
+                if (coler == 1)
+                    Debug.DrawLine(old_wp, wp, Color.yellow, 100f);
+                else if (coler == 2)
+                    Debug.DrawLine(old_wp, wp, Color.blue, 100f);
+                else if (coler == 3)
+                    Debug.DrawLine(old_wp, wp, Color.green, 100f);
+                old_wp = wp;
+            }
+        }
+
+
         public List<Vector3> PathInjection(List<Vector3> ori_my_path, float spacing) {
             List<Vector3> injected_path = new List<Vector3>();
             // int spacing = 1;
@@ -196,15 +225,24 @@ namespace Scrips
 
         public List<Vector3> PathMoveAway(List<Vector3> injected_path) {
             Debug.Log("Start moving points away");
-            for (int i = 0; i < injected_path.Count; i++)
+            for (int i = 1; i < injected_path.Count; i++)
             {
                 int m = terrain_manager.myInfo.get_i_index(injected_path[i][0]);
                 int n = terrain_manager.myInfo.get_j_index(injected_path[i][2]);
-                int move_z = terrain_manager.myInfo.CheckObsUpandDown(m, n);
+                float move_z = terrain_manager.myInfo.CheckObsUpandDown(m, n);
                 n = terrain_manager.myInfo.get_j_index(injected_path[i][2] + move_z);
-                int move_x = terrain_manager.myInfo.CheckObsUpandDown(m, n);
+                float move_x = terrain_manager.myInfo.CheckObsLeftandRight(m, n);
                 float old_x = injected_path[i][0];
                 float old_z = injected_path[i][2];
+
+                int sign_x = move_x > 0 ? 3 : -3;
+                int sign_z = move_z > 0 ? 3 : -3;
+
+                float last_x = injected_path[i - 1][0];
+                float last_z = injected_path[i - 1][2];
+                
+                // if (Math.Abs((old_x + move_x) - last_x) > 5f)
+                    // injected_path[i] = new Vector3(old_x + move_x, 0f, old_z + move_z);
                 injected_path[i] = new Vector3(old_x + move_x, 0f, old_z + move_z);
             }
             return injected_path;
@@ -420,6 +458,9 @@ namespace Scrips
                 {
                     randomPoint = new Vector3(UnityEngine.Random.Range(xLow, xHigh), 0,
                         UnityEngine.Random.Range(zLow, zHigh));
+                    // Debug.Log(transform.position.x);
+                    // randomPoint = new Vector3(UnityEngine.Random.Range(Math.Max(transform.position.x - 20f, xLow), Math.Min(transform.position.x + 20f, xHigh)), 0f,
+                        // UnityEngine.Random.Range(Math.Max((transform.position.z - 20f, zLow), Math.Min(transform.position.z + 20f, zHigh))));
                 }
                 onObstacle = CheckObstaclePoint(randomPoint);
             }
@@ -581,18 +622,23 @@ namespace Scrips
                 }
                 // look ahead waypoint position
                 next_waypoint_idx = min_idx;
+
+
+                
                 Vector3 lookahead_position = my_path[next_waypoint_idx];
-                Debug.DrawLine(transform.position, my_path[next_waypoint_idx], Color.yellow);
 
                 lookahead_dist = Mathf.Sqrt(Mathf.Pow(car_pos[0] - lookahead_position[0], 2) + Mathf.Pow(car_pos[2] - lookahead_position[2], 2));
                 goal_distance = Mathf.Sqrt(Mathf.Pow(car_pos[0] - goal_pos[0],2) + Mathf.Pow(car_pos[2] - goal_pos[2], 2));
             
                 // if close to the look ahead waypoint, choose next waypoint to look next
-                if ((lookahead_dist < 3) && (next_waypoint_idx < my_path.Count - 1))
+                while ((lookahead_dist < 8) && (next_waypoint_idx < my_path.Count - 1))
                 {
+                    Debug.Log("dis:" + lookahead_dist);
                     next_waypoint_idx ++;
                     lookahead_dist = Mathf.Sqrt(Mathf.Pow(car_pos[0] - my_path[next_waypoint_idx][0], 2) + Mathf.Pow(car_pos[2] - my_path[next_waypoint_idx][2], 2));
                 }
+                Debug.Log(next_waypoint_idx);
+                Debug.DrawLine(transform.position, my_path[next_waypoint_idx], Color.yellow);
 
                 
 

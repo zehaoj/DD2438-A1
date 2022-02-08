@@ -162,105 +162,154 @@ public void ExpandTerrain()
         int expand_x_ratio = (int)System.Math.Ceiling(200f / x_N);
         int expand_z_ratio = (int)System.Math.Ceiling(200f / z_N);
 
+        float[,] ori_expanded_traversability = new float[x_N * expand_x_ratio, z_N * expand_z_ratio];
         expanded_traversability = new float[x_N * expand_x_ratio, z_N * expand_z_ratio];
 
         for (int i = 0; i < x_N * expand_x_ratio; i++)
         {
             for (int j = 0; j < z_N * expand_z_ratio; j++)
             {
-                expanded_traversability[i, j] = traversability[i / expand_x_ratio, j / expand_z_ratio];
+                ori_expanded_traversability[i, j] = traversability[i / expand_x_ratio, j / expand_z_ratio];
             }
         }
+
+        x_step = (x_high - x_low) / (x_N * expand_x_ratio);
+        z_step = (z_high - z_low) / (z_N * expand_z_ratio);
+        nearby_x = (int)System.Math.Ceiling(5.0f / x_step);
+        nearby_z = (int)System.Math.Ceiling(5.0f / z_step);
+
+        expanded_traversability = ori_expanded_traversability;
+
+        // for (int i = 0; i < x_N * expand_x_ratio; i++)
+        // {
+        //     for (int j = 0; j < z_N * expand_z_ratio; j++)
+        //     {
+        //         bool not_near = true;
+        //         if ((i < x_N) || (i >= (x_N - 1) * expand_x_ratio) || (j < z_N) || (j >= (z_N - 1) * expand_z_ratio)) {
+        //             expanded_traversability[i, j] = 1;
+        //             break;
+        //         } else {
+        //             for (int m = -1 * nearby_x; m < nearby_x; m++) 
+        //             {
+        //                 for (int n = -1 * nearby_z; n < nearby_z; n++)
+        //                 {
+        //                     if (ori_expanded_traversability[i + m, j + n] > 0) {
+        //                         not_near = false;
+        //                         break;
+        //                     }
+        //                 }
+        //                 if (!not_near)
+        //                     break;
+        //             }
+        //         }
+        //         if (not_near) {
+        //             expanded_traversability[i, j] = 1f;
+        //         } else {
+        //             expanded_traversability[i, j] = 0f;
+        //         }
+        //     }
+        // }
+
         x_N *= expand_x_ratio;
         z_N *= expand_z_ratio;
         goal_i = get_i_index(goal_pos[0]);
         goal_j = get_j_index(goal_pos[2]);
-        x_step = (x_high - x_low) / x_N;
-        z_step = (z_high - z_low) / z_N;
-        nearby_x = (int)System.Math.Ceiling(4.0f / x_step);
-        nearby_z = (int)System.Math.Ceiling(4.0f / z_step);
-
     }
 
     public bool CheckObs(int i, int j)
     {
         if (expanded_traversability[i, j] > 0) {
             return true;
-        // }
-        // else if ((System.Math.Abs(i - goal_i) + System.Math.Abs(j - goal_j)) > 20) {
-        //     for (int m = i - nearby_x; m <= i + nearby_x; m++)
-        //     {
-        //         for (int n = j - nearby_z; n <= j + nearby_z; n++)
-        //         {
-        //             if (expanded_traversability[m, n] > 0) {
-        //                 return true;
-        //             }
-        //         }
-        //     }
-        //     return false;
         } else {
             return false;
         }
     }
 
-    public int CheckObsUpandDown(int i, int j)
+    public float CheckObsUpandDown(int i, int j)
     {
         int up_obs_dist = 0;
         int down_obs_dist = 0;
 
-        for (int diff = 1; diff < nearby_z; diff++)
+        for (int diff = 1; diff < 2 * nearby_z; diff++)
         {
             if (expanded_traversability[i, j + diff] > 0) {
                 up_obs_dist = diff;
                 break;
             }
         }
-        for (int diff = 1; diff < nearby_z; diff++)
+
+        for (int diff = 1; diff < 2 * nearby_z; diff++)
         {
             if (expanded_traversability[i, j - diff] > 0) {
                 down_obs_dist = diff;
                 break;
             }
         }
+
+        // no obs up or down within 3 nearby_z
         if ((up_obs_dist == 0) && (down_obs_dist == 0))
             return 0;
-        if ((up_obs_dist == 0) && (down_obs_dist > 0))
-            return (nearby_z - down_obs_dist);
-        if ((up_obs_dist >= 0) && (down_obs_dist == 0))
-            return (up_obs_dist - nearby_z);
-        return 0;
-        // TODO
-        // if both have obs, redesign path
+
+        if ((up_obs_dist > 0) && (down_obs_dist > 0)) {
+            if ((up_obs_dist < nearby_z) && (down_obs_dist < nearby_z))
+                // TODO mark this path false
+                return 0;
+            return ((up_obs_dist - down_obs_dist) / 2f);
+            // if (down_obs_dist < nearby_z)
+            //     return ((up_obs_dist - down_obs_dist) / 2f);
+        }
+        
+        // no obs up within 3 nearby_z
+        if (up_obs_dist == 0) {
+            // obs down within 1 nearby_z
+            // if (down_obs_dist < nearby_z)
+            return (2f * nearby_z - down_obs_dist);
+        } else {
+            // if (up_obs_dist < nearby_z)
+            return (down_obs_dist - 2f * nearby_z);
+        }
     }
 
-    public int CheckObsLeftandRight(int i, int j)
+    public float CheckObsLeftandRight(int i, int j)
     {
         int left_obs_dist = 0;
         int right_obs_dist = 0;
 
-        for (int diff = 1; diff < nearby_x; diff++)
+        for (int diff = 1; diff < 2 * nearby_x; diff++)
         {
             if (expanded_traversability[i - diff, j] > 0) {
                 left_obs_dist = diff;
                 break;
             }
         }
-        for (int diff = 1; diff < nearby_x; diff++)
+        for (int diff = 1; diff < 2 * nearby_x; diff++)
         {
             if (expanded_traversability[i + diff, j] > 0) {
                 right_obs_dist = diff;
                 break;
             }
         }
+
+        // no obs left or right within 3 nearby_x
         if ((left_obs_dist == 0) && (right_obs_dist == 0))
             return 0;
-        if ((left_obs_dist == 0) && (right_obs_dist > 0))
-            return (right_obs_dist - nearby_x);
-        if ((left_obs_dist >= 0) && (right_obs_dist == 0))
-            return (nearby_x - left_obs_dist);
-        return 0;
-        // TODO
-        // if both have obs, redesign path
+
+        if ((left_obs_dist > 0) && (right_obs_dist > 0)) {
+            if ((left_obs_dist < nearby_z) && (right_obs_dist < nearby_z))
+                // TODO mark this path false
+                return 0;
+            return ((right_obs_dist - left_obs_dist) / 2f);
+            // if (down_obs_dist < nearby_z)
+            //     return ((up_obs_dist - down_obs_dist) / 2f);
+        }
+        
+        // no obs right within 3 nearby_x
+        if (left_obs_dist > 0) {
+            return (2f * nearby_x - right_obs_dist);
+        } else {
+            return (right_obs_dist - 2f * nearby_x);
+        }
+
     }
 
     // check direction diagonal from lower left to upper right
