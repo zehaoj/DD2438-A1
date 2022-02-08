@@ -76,12 +76,19 @@ namespace Scrips
             else
                 speedup_stratagy = 1;
 
-            // RRT function
+            // RRT* inspo version
             var watch = new System.Diagnostics.Stopwatch();
             watch.Start();
-            List<Vector3> ori_my_path = Rrt(start_pos, goal_pos);
+            List<Vector3> ori_my_path = RrtStar(start_pos, goal_pos);//Rrt(start_pos, goal_pos);
             watch.Stop();
-            Debug.Log($"Execution Time RRT: {watch.ElapsedMilliseconds} ms");
+            Debug.Log($"Execution Time RRT*: {watch.ElapsedMilliseconds} ms");
+            
+            // regular RRT
+            var watch2 = new System.Diagnostics.Stopwatch();
+            watch2.Start();
+            List<Vector3> test_my_path = Rrt(start_pos, goal_pos);//Rrt(start_pos, goal_pos);
+            watch2.Stop();
+            Debug.Log($"Execution Time RRT: {watch2.ElapsedMilliseconds} ms");
 
             // Inject waypoints between
             List<Vector3> injected_path = new List<Vector3>();
@@ -279,6 +286,7 @@ namespace Scrips
             int iter = 0;
             List<Vector3> myPath = new List<Vector3>();
             Node<Vector3> finalNode = null;
+            int stepSize = 6;
             
             while (pathFound == false)
             {
@@ -287,8 +295,8 @@ namespace Scrips
                     pathFound = true;
                     Debug.Log("Quit early");
                 }
-                Node<Vector3> fLeefNode = BuildTree(xLow, xHigh, zLow, zHigh, startPoint, goalPoint, forwardTree, forwardNewParent);
-                Node<Vector3> bLeefNode = BuildTree(xLow, xHigh, zLow, zHigh, goalPoint, startPoint, backwardTree, backwardNewParent);
+                Node<Vector3> fLeefNode = BuildTree(xLow, xHigh, zLow, zHigh, startPoint, goalPoint, forwardTree, forwardNewParent, stepSize);
+                Node<Vector3> bLeefNode = BuildTree(xLow, xHigh, zLow, zHigh, goalPoint, startPoint, backwardTree, backwardNewParent, stepSize);
                 (pathFound, fMeetNode, bMeetNode) = FindMeetingPoint(forwardTree, backwardTree, pathFound, iter, fLeefNode, bLeefNode);
             }
             // We have found a path to the goal, so now we traverse and combine the trees and find the path nodes
@@ -317,6 +325,127 @@ namespace Scrips
             }
 
             return myPath;
+        }
+        public List<Vector3> RrtStar(Vector3 startPoint, Vector3 goalPoint)
+        {
+            float xLow = terrain_manager.myInfo.x_low;
+            float xHigh = terrain_manager.myInfo.x_high;
+            float zLow = terrain_manager.myInfo.z_low;
+            float zHigh = terrain_manager.myInfo.z_high;
+            bool pathFound = false;
+
+
+            var forwardTree = new Node<Vector3>(startPoint);
+            Node<Vector3> forwardNewParent = forwardTree.Root;
+            Node<Vector3> fMeetNode = null;
+            bool forwardTreeTraversal = true;
+            
+            var backwardTree = new Node<Vector3>(goalPoint);
+            Node<Vector3> backwardNewParent = backwardTree.Root;
+            Node<Vector3> bMeetNode = null;
+            bool backwardTreeTraversal = true;
+            
+            int iter = 0;
+            List<Vector3> myPath = new List<Vector3>();
+            Node<Vector3> finalNode = null;
+            int iterLim = 10000;
+            Node<Vector3> currNode;
+            int stepSize = 6;
+
+
+            while (pathFound == false)
+            {
+                iter += 1;
+                if (iter > 30000) {
+                    pathFound = true;
+                    Debug.Log("Quit early");
+                }
+                Node<Vector3> fLeefNode = BuildTreeStar(xLow, xHigh, zLow, zHigh, startPoint, goalPoint, forwardTree, forwardNewParent, stepSize);
+                Node<Vector3> bLeefNode = BuildTreeStar(xLow, xHigh, zLow, zHigh, goalPoint, startPoint, backwardTree, backwardNewParent, stepSize);
+                (pathFound, fMeetNode, bMeetNode) = FindMeetingPoint(forwardTree, backwardTree, pathFound, iter, fLeefNode, bLeefNode);
+                
+            }
+            // We have found a path to the goal, so now we traverse and combine the trees and find the path nodes
+            while (forwardTreeTraversal)
+            {
+                myPath.Add(fMeetNode.Value);
+                fMeetNode = fMeetNode.Parent;
+                if (fMeetNode == forwardTree.Root)
+                {
+                    myPath.Add(forwardTree.Root.Value);
+                    myPath.Reverse();
+                    forwardTreeTraversal = false;
+                    
+                }
+            }
+            while (backwardTreeTraversal)
+            {
+                myPath.Add(bMeetNode.Value);
+                bMeetNode = bMeetNode.Parent;
+                if (bMeetNode == backwardTree.Root)
+                {
+                    myPath.Add(backwardTree.Root.Value);
+                    backwardTreeTraversal = false;
+                    
+                }
+            }
+
+            return myPath;
+        }
+
+        public Node<Vector3> BuildTreeStar(float xLow, float xHigh, float zLow, float zHigh, Vector3 startPoint,
+            Vector3 goalPoint, Node<Vector3> tree, Node<Vector3> newParent, int stepSize=10)
+        {
+            Node<Vector3> currNode = null;
+            // Pick a random position, find a waypoint between it and a node and add it to the tree
+                Vector3 randomPoint = FindRandomPoint(xLow, xHigh, zLow, zHigh, goalPoint);
+                Vector3 parentPoint = startPoint;
+
+                float dist = Vector3.Distance(startPoint, randomPoint);
+                List <Node<Vector3>> neighbors = new List<Node<Vector3>>();
+                foreach (Node<Vector3> node in tree.All)
+                {
+                    float newDist = Vector3.Distance(node.Value, randomPoint);
+                    if (dist > newDist)
+                    {
+                        dist = newDist;
+                        newParent = node;
+                        parentPoint = newParent.Value;
+                    }
+                }
+                Vector3 wayPoint = FindWayPoint(parentPoint, randomPoint, stepSize);
+                bool onObstacle = CheckObstaclePoint(wayPoint);
+                if (!onObstacle)
+                {
+                    foreach (Node<Vector3> node in tree.All)
+                    {
+                        float newDist = Vector3.Distance(node.Value, wayPoint);
+                        if (newDist <= stepSize)
+                        {
+                            neighbors.Add(node);
+                        }
+                    }
+
+                    float minCost = newParent.Cost + Vector3.Distance(newParent.Value, wayPoint);
+                    foreach (Node<Vector3> node in neighbors)
+                    {
+                        if ((node.Cost + Vector3.Distance(wayPoint, node.Value)) < minCost)
+                        {
+                            minCost = node.Cost + Vector3.Distance(wayPoint, node.Value);
+                            newParent = node;
+                        }
+                    }
+                    bool edgeOnObstacle =CheckObstacleEdge(parentPoint, wayPoint);
+                    if (!edgeOnObstacle)
+                    {
+                        currNode = newParent.Add(wayPoint);
+                        /*foreach (var node in tree.All.Values())
+                        { 
+                            Debug.DrawLine(newParent.Value, wayPoint, Color.green, 100f);
+                        }*/
+                    }
+                }
+                return currNode;
         }
 
         public (bool, Node<Vector3>, Node<Vector3>) FindMeetingPoint(Node<Vector3> forwardTree, Node<Vector3> backwardTree, bool pathFound, int iter, Node<Vector3> fLeafNode, Node<Vector3> bLeafNode)
@@ -361,7 +490,7 @@ namespace Scrips
             return (pathFound, null, null);
         }
 
-        public Node<Vector3> BuildTree(float xLow, float xHigh, float zLow, float zHigh, Vector3 startPoint, Vector3 goalPoint, Node<Vector3> tree, Node<Vector3> newParent)
+        public Node<Vector3> BuildTree(float xLow, float xHigh, float zLow, float zHigh, Vector3 startPoint, Vector3 goalPoint, Node<Vector3> tree, Node<Vector3> newParent, int stepSize)
         {
             Node<Vector3> currNode;
             // Pick a random position, find a waypoint between it and a node and add it to the tree
@@ -380,7 +509,7 @@ namespace Scrips
                     parentPoint = newParent.Value;
                 }
             }
-            Vector3 wayPoint = FindWayPoint(parentPoint, randomPoint);
+            Vector3 wayPoint = FindWayPoint(parentPoint, randomPoint, stepSize);
             //Debug.DrawLine(start_pos, wayPoint, Color.green, 100f);
 
             bool onObstacle = CheckObstaclePoint(wayPoint);
@@ -391,10 +520,10 @@ namespace Scrips
                 if (!edgeOnObstacle)
                 {
                     currNode = newParent.Add(wayPoint);
-                    // foreach (var node in tree.All.Values())
-                    // {
-                    //     Debug.DrawLine(newParent.Value, wayPoint, Color.blue, 100f);
-                    // }
+                    /*foreach (var node in tree.All.Values())
+                        {
+                             Debug.DrawLine(newParent.Value, wayPoint, Color.red, 100f);
+                        }*/
                     return currNode;
                 }
             }
@@ -406,7 +535,7 @@ namespace Scrips
         {
             Vector3 randomPoint = new Vector3(0,0,0);
             bool onObstacle = true;
-            Random random = new Random();
+            Random random = new Random(1);
             
             while (onObstacle)
             {
@@ -426,9 +555,8 @@ namespace Scrips
             return randomPoint;
         }
 
-        public Vector3 FindWayPoint(Vector3 start_pos, Vector3 endPoint)
-        { 
-            const int stepSize = 10;
+        public Vector3 FindWayPoint(Vector3 start_pos, Vector3 endPoint, int stepSize=10)
+        {
             (float xDistWayPoint, float zDistWayPoint) = GetCoordDistanceBetweenPoints(start_pos, endPoint);
             float distWayPoint = Vector3.Distance(start_pos, endPoint);
             float wayPointX = start_pos.x+(stepSize * xDistWayPoint / distWayPoint);

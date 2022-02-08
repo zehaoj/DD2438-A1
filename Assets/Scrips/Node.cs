@@ -11,6 +11,7 @@ namespace Scrips
         {
           public Node<T> Parent { get; private set; }
           public T Value { get; set; }
+          public float Cost;
           private readonly List<Node<T>> _children = new List<Node<T>>();
    
           public Node(T value)
@@ -26,10 +27,12 @@ namespace Scrips
               }
           }
    
-          public Node<T> Add(T value, int index = -1)
+          public Node<T> Add(T value, int index = -1, float cost = 0)
           {
               var childNode = new Node<T>(value);
               Add(childNode, index);
+              childNode.Cost = cost;
+              
               return childNode;
           }
    
