@@ -154,38 +154,6 @@ namespace Scrips
             DrawPath(my_path, 1);
 
 
-
-            // TODO
-            // 1. final detection
-            // 2. flexible lookahead dist
-
-            // for (int i = 0; i < my_path.C)
-
-            // int idx_now = 0;
-            // int next_idx = 0;
-            // bool can_straight = false;
-            // int straightup_dist = 40;
-            // while (idx_now < my_path.Count - straightup_dist - 1) {
-            //     can_straight = true;
-            //     for (int i = idx_now + 1; i < idx_now + straightup_dist + 1; i++) {
-            //         if (CheckObstacleEdge(my_path[idx_now], my_path[i])) {
-            //             next_idx = i;
-            //             can_straight = false;
-            //             break;
-            //         }
-            //         next_idx = idx_now + straightup_dist;
-            //     }
-            //     if (can_straight) {
-            //         // Vector3 unit_dir = (my_path[next_idx] - my_path[idx_now]) / 10;
-            //         my_path.RemoveRange(idx_now, straightup_dist - 1);
-            //         // for (int i = idx_now + 1; i < idx_now + straightup_dist; i++) {
-            //             // my_path[i] = new Vector3(my_path[idx_now][0] + unit_dir[0], 0, my_path[idx_now][2] + unit_dir[2]);
-            //         // }
-            //     }
-            //     idx_now = next_idx;
-            // }
-
-
             // my_path = PathInjection(my_path, 0.5f);
             
             // find the curvature of each points
