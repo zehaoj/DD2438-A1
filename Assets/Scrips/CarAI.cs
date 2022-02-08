@@ -38,6 +38,8 @@ namespace Scrips
 
         public float hit_time = 0;
 
+        public float finished_hit_time = 0;
+
         public Vector3 goal_pos;
 
         Rigidbody my_rigidbody;
@@ -88,7 +90,7 @@ namespace Scrips
 
             if (point_injection)
             {
-                injected_path = PathInjection(ori_my_path, 3f);
+                injected_path = PathInjection(ori_my_path, 2f);
             } else {
                 injected_path = ori_my_path;
             }
@@ -118,7 +120,7 @@ namespace Scrips
                 my_path = PathMoveAway(my_path);
             }
 
-            // DrawPath(my_path, 2);
+            DrawPath(my_path, 2);
         
             
             my_path = PathSmoothing(my_path);
@@ -126,6 +128,11 @@ namespace Scrips
 
 
             // my_path = injected_path;
+
+            // my_path = PathFinalFineMoveAway(my_path);
+            // DrawPath(my_path, 2);
+            // my_path = PathSmoothing(my_path, 0.8f);
+
             DrawPath(my_path, 1);
 
 
@@ -235,11 +242,11 @@ namespace Scrips
                 float old_x = injected_path[i][0];
                 float old_z = injected_path[i][2];
 
-                int sign_x = move_x > 0 ? 3 : -3;
-                int sign_z = move_z > 0 ? 3 : -3;
+                // int sign_x = move_x > 0 ? 3 : -3;
+                // int sign_z = move_z > 0 ? 3 : -3;
 
-                float last_x = injected_path[i - 1][0];
-                float last_z = injected_path[i - 1][2];
+                // float last_x = injected_path[i - 1][0];
+                // float last_z = injected_path[i - 1][2];
                 
                 // if (Math.Abs((old_x + move_x) - last_x) > 5f)
                     // injected_path[i] = new Vector3(old_x + move_x, 0f, old_z + move_z);
@@ -248,13 +255,45 @@ namespace Scrips
             return injected_path;
         }
 
-        public List<Vector3> PathSmoothing(List<Vector3> injected_path)
+
+        public List<Vector3> PathFinalFineMoveAway(List<Vector3> injected_path) {
+            Debug.Log("Start moving points away last time");
+            for (int i = 1; i < injected_path.Count; i++)
+            {
+                int m = terrain_manager.myInfo.get_i_index(injected_path[i][0]);
+                int n = terrain_manager.myInfo.get_j_index(injected_path[i][2]);
+                // float move_z = terrain_manager.myInfo.CheckObsUpandDown(m, n);
+                // n = terrain_manager.myInfo.get_j_index(injected_path[i][2] + move_z);
+                float move_x1 = terrain_manager.myInfo.CheckObsDiagonalUp(m, n);
+
+                m = terrain_manager.myInfo.get_j_index(injected_path[i][0] + move_x1);
+                n = terrain_manager.myInfo.get_j_index(injected_path[i][2] + move_x1);
+                
+                float move_x2 = terrain_manager.myInfo.CheckObsDiagonalDown(m, n);
+
+                float old_x = injected_path[i][0];
+                float old_z = injected_path[i][2];
+
+                // int sign_x = move_x > 0 ? 3 : -3;
+                // int sign_z = move_z > 0 ? 3 : -3;
+
+                float last_x = injected_path[i - 1][0];
+                float last_z = injected_path[i - 1][2];
+                
+                // if (Math.Abs((old_x + move_x) - last_x) > 5f)
+                    // injected_path[i] = new Vector3(old_x + move_x, 0f, old_z + move_z);
+                injected_path[i] = new Vector3(old_x + move_x1 + move_x2, 0f, old_z + move_x1 - move_x2);
+            }
+            return injected_path;
+        }
+
+        public List<Vector3> PathSmoothing(List<Vector3> injected_path, float b = 0.9f)
         {
             Debug.Log("Start smoothing");
 
             float tolerance = 0.01f;
             float change = tolerance;
-            float b = 0.9f;
+            // float b = 0.8f;
             float a = 1 - b;
 
             float[,] smooth_path = new float[injected_path.Count, 2];
@@ -280,7 +319,7 @@ namespace Scrips
                     int tmp_i = terrain_manager.myInfo.get_i_index(tmp_x);
                     int tmp_j = terrain_manager.myInfo.get_j_index(tmp_y);
 
-                    if (!terrain_manager.myInfo.CheckObs(tmp_i, tmp_j)) {
+                    if (!terrain_manager.myInfo.CheckObsAround(tmp_i, tmp_j)) {
                         smooth_path[i, 0] = tmp_x;
                         smooth_path[i, 1] = tmp_y;
                     }
@@ -425,7 +464,7 @@ namespace Scrips
             if (!onObstacle)
             {
                     
-                bool edgeOnObstacle =CheckObstacleEdge(parentPoint, wayPoint);
+                bool edgeOnObstacle = CheckObstacleEdge(parentPoint, wayPoint);
                 if (!edgeOnObstacle)
                 {
                     currNode = newParent.Add(wayPoint);
@@ -450,7 +489,7 @@ namespace Scrips
             {
                 int goalProb = random.Next(1, 101);
                 // Debug.Log($"goalProb: {goalProb}");
-                if (goalProb < 20)
+                if (goalProb < 5)
                 {
                     randomPoint = goalPoint;
                 }
@@ -469,7 +508,7 @@ namespace Scrips
 
         public Vector3 FindWayPoint(Vector3 start_pos, Vector3 endPoint)
         { 
-            const int stepSize = 10;
+            const int stepSize = 8;
             (float xDistWayPoint, float zDistWayPoint) = GetCoordDistanceBetweenPoints(start_pos, endPoint);
             float distWayPoint = Vector3.Distance(start_pos, endPoint);
             float wayPointX = start_pos.x+(stepSize * xDistWayPoint / distWayPoint);
@@ -593,6 +632,8 @@ namespace Scrips
                 hit_time = Time.time;
             }
 
+
+            // when hit
             if (just_hit) {
                 if ((Time.time - hit_time) < 2.5) {
                     m_Car.Move(0f, -0.3f, -0.3f, 0);
@@ -602,6 +643,11 @@ namespace Scrips
                     Debug.Log("Stopping");
                 } else {
                     just_hit = false;
+                    finished_hit_time = Time.time;
+                    while (CheckObstacleEdge(transform.position, my_path[next_waypoint_idx])) {
+                        next_waypoint_idx --;
+                    }
+                    next_waypoint_idx -= 2;
                 }
             } else {
                 just_hit = false;
@@ -611,8 +657,12 @@ namespace Scrips
                 float min_Dist = 100000f;
                 int min_idx = next_waypoint_idx;
 
-                for (int idx = next_waypoint_idx; idx < my_path.Count; idx ++)
+                for (int idx = next_waypoint_idx + 1; idx < my_path.Count; idx ++)
                 {
+                    if (CheckObstacleEdge(car_pos, my_path[idx])) {
+                        min_idx --;
+                        break;
+                    }
                     Vector3 cur_lookahead_position = my_path[idx];
                     float cur_lookahead_dist = Mathf.Sqrt(Mathf.Pow(car_pos[0] - cur_lookahead_position[0], 2) + Mathf.Pow(car_pos[2] - cur_lookahead_position[2], 2));
                     if (cur_lookahead_dist < min_Dist) {
@@ -633,7 +683,11 @@ namespace Scrips
                 // if close to the look ahead waypoint, choose next waypoint to look next
                 while ((lookahead_dist < 8) && (next_waypoint_idx < my_path.Count - 1))
                 {
-                    Debug.Log("dis:" + lookahead_dist);
+                    if (CheckObstacleEdge(car_pos, my_path[next_waypoint_idx])) {
+                        next_waypoint_idx --;
+                        break;
+                    }
+                    // Debug.Log("dis:" + lookahead_dist);
                     next_waypoint_idx ++;
                     lookahead_dist = Mathf.Sqrt(Mathf.Pow(car_pos[0] - my_path[next_waypoint_idx][0], 2) + Mathf.Pow(car_pos[2] - my_path[next_waypoint_idx][2], 2));
                 }
@@ -645,7 +699,7 @@ namespace Scrips
                 // a PD-controller to get desired velocity
                 Vector3 position_error = lookahead_position - transform.position;
 
-                float full_speed = 10f;
+                float full_speed = 15f;
                 if (speedup_stratagy == 1) {
                     // 1. speed up to fullest when finishing 20% of the whole path
                     // suitable for short dist
@@ -659,6 +713,11 @@ namespace Scrips
                 }
 
                 max_speed = Math.Min(max_speed, Math.Max(1f / path_curvature[next_waypoint_idx], 3));
+
+
+                // just finished going back, speed up slowly
+                float finished_hit_time_percentage = (float) ((Time.time - finished_hit_time) / 5f);
+                max_speed = (float) Math.Min(max_speed, full_speed * finished_hit_time_percentage);
 
                 // look ahead for sharp turns in the far front
                 if (next_waypoint_idx < my_path.Count - 6) {
@@ -696,7 +755,7 @@ namespace Scrips
                 Debug.Log("Steering:" + steering + " Acceleration:" + acceleration + " Velo:" + my_rigidbody.velocity.magnitude + "max_speed:" + max_speed);
                 
 
-                if (Vector3.Angle(transform.forward, lookahead_position - car_pos) > 90F) {
+                if ((Vector3.Angle(transform.forward, lookahead_position - car_pos) > 90F) && ((Time.time - start_time) < 10)) {
                     Debug.Log("reorient");
                     start_turn = true;
                     int sign = steering > 0 ? 1 : -1;

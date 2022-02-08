@@ -175,8 +175,8 @@ public void ExpandTerrain()
 
         x_step = (x_high - x_low) / (x_N * expand_x_ratio);
         z_step = (z_high - z_low) / (z_N * expand_z_ratio);
-        nearby_x = (int)System.Math.Ceiling(5.0f / x_step);
-        nearby_z = (int)System.Math.Ceiling(5.0f / z_step);
+        nearby_x = (int)System.Math.Ceiling(4.0f / x_step);
+        nearby_z = (int)System.Math.Ceiling(4.0f / z_step);
 
         expanded_traversability = ori_expanded_traversability;
 
@@ -220,6 +220,27 @@ public void ExpandTerrain()
     {
         if (expanded_traversability[i, j] > 0) {
             return true;
+        } else {
+            return false;
+        }
+    }
+
+    public bool CheckObsAround(int i, int j)
+    {
+        if (expanded_traversability[i, j] > 0) {
+            return true;
+        }
+        else if ((System.Math.Abs(i - goal_i) + System.Math.Abs(j - goal_j)) > 20) {
+            for (int m = i - nearby_x / 2; m <= i + nearby_x / 2; m++)
+            {
+                for (int n = j - nearby_z / 2; n <= j + nearby_z / 2; n++)
+                {
+                    if (expanded_traversability[m, n] > 0) {
+                        return true;
+                    }
+                }
+            }
+            return false;
         } else {
             return false;
         }
@@ -338,6 +359,37 @@ public void ExpandTerrain()
             return (right_up_obs_dist - nearby_x);
         if ((left_down_obs_dist >= 0) && (right_up_obs_dist == 0))
             return (nearby_x - left_down_obs_dist);
+        return 0;
+        // TODO
+        // if both have obs, redesign path
+    }
+
+    // check direction diagonal from upper left to lower right
+    public int CheckObsDiagonalDown(int i, int j)
+    {
+        int left_up_obs_dist = 0;
+        int right_down_obs_dist = 0;
+
+        for (int diff = 1; diff < nearby_x; diff++)
+        {
+            if (expanded_traversability[i - diff, j + diff] > 0) {
+                left_up_obs_dist = diff;
+                break;
+            }
+        }
+        for (int diff = 1; diff < nearby_x; diff++)
+        {
+            if (expanded_traversability[i + diff, j - diff] > 0) {
+                right_down_obs_dist = diff;
+                break;
+            }
+        }
+        if ((left_up_obs_dist == 0) && (right_down_obs_dist == 0))
+            return 0;
+        if ((left_up_obs_dist == 0) && (right_down_obs_dist > 0))
+            return (right_down_obs_dist - nearby_x);
+        if ((left_up_obs_dist >= 0) && (right_down_obs_dist == 0))
+            return (nearby_x - left_up_obs_dist);
         return 0;
         // TODO
         // if both have obs, redesign path
