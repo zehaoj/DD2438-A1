@@ -4,6 +4,7 @@ using System.Linq;
 using UnityEngine;
 using UnityStandardAssets.Vehicles.Car;
 using Random = System.Random;
+using System.Data;
 
 namespace Scrips
 {
@@ -92,6 +93,45 @@ namespace Scrips
             watch2.Stop();
             Debug.Log($"Execution Time RRT: {watch2.ElapsedMilliseconds} ms");
 
+            // List<Vector3> test_my_path = Rrt(start_pos, goal_pos);
+
+            // regular RRT, multiple iterations
+            var rrtStopWatch = new System.Diagnostics.Stopwatch();
+            rrtStopWatch.Start();
+            List<Vector3> newPath;
+            int timeLimit = 2;
+            List<Vector3> bestPath = new List<Vector3>();
+            float bestPathLen = Single.PositiveInfinity;
+            int paths = 0;
+            while (rrtStopWatch.Elapsed.Seconds < timeLimit)
+            {
+                paths += 1;
+                newPath = Rrt(start_pos, goal_pos);
+                float newPathLen = 0;
+                for(int i=0; i<newPath.Count-1; i++)
+                {
+                    newPathLen += Vector3.Distance(newPath[i], newPath[i+1]);
+                }
+                if (newPathLen < bestPathLen)
+                {
+                    bestPath = newPath;
+                    bestPathLen = newPathLen;
+                    Debug.Log("Check 2");
+                }
+                //Debug.Log(String.Format("len best RRT path: {0}", bestPathLen));
+                Debug.Log($"Check best path : {paths}");
+            }
+            Debug.Log($"Number of paths computed: {paths}");
+            List<Vector3> ori_my_path = bestPath;
+            
+            /*// Draw best path in terrain
+            Vector3 oldWp2 = terrain_manager.myInfo.start_pos;
+            foreach (var wp in ori_my_path)
+            {
+                Debug.DrawLine(oldWp2, wp, Color.red, 100f);
+                oldWp2 = wp;
+            }*/
+            
             // Inject waypoints between
             List<Vector3> injected_path = new List<Vector3>();
 
@@ -426,11 +466,13 @@ namespace Scrips
             Node<Vector3> forwardNewParent = forwardTree.Root;
             Node<Vector3> fMeetNode = null;
             bool forwardTreeTraversal = true;
+            forwardNewParent.Cost = 0;
             
             var backwardTree = new Node<Vector3>(goalPoint);
             Node<Vector3> backwardNewParent = backwardTree.Root;
             Node<Vector3> bMeetNode = null;
             bool backwardTreeTraversal = true;
+            backwardNewParent.Cost = 0;
             
             int iter = 0;
             List<Vector3> myPath = new List<Vector3>();
@@ -482,57 +524,55 @@ namespace Scrips
 
         public Node<Vector3> BuildTreeStar(float xLow, float xHigh, float zLow, float zHigh, Vector3 startPoint,
             Vector3 goalPoint, Node<Vector3> tree, Node<Vector3> newParent, int stepSize=10)
-        {
+        { 
             Node<Vector3> currNode = null;
             // Pick a random position, find a waypoint between it and a node and add it to the tree
-                Vector3 randomPoint = FindRandomPoint(xLow, xHigh, zLow, zHigh, goalPoint);
-                Vector3 parentPoint = startPoint;
+            Vector3 randomPoint = FindRandomPoint(xLow, xHigh, zLow, zHigh, goalPoint);
+            Vector3 parentPoint = startPoint;
 
-                float dist = Vector3.Distance(startPoint, randomPoint);
-                List <Node<Vector3>> neighbors = new List<Node<Vector3>>();
+            float dist = Vector3.Distance(startPoint, randomPoint);
+            List <Node<Vector3>> neighbors = new List<Node<Vector3>>();
+            foreach (Node<Vector3> node in tree.All)
+            {
+                float newDist = Vector3.Distance(node.Value, randomPoint);
+                if (dist > newDist)
+                {
+                    dist = newDist;
+                    newParent = node;
+                    parentPoint = newParent.Value;
+                }
+            }
+            Vector3 wayPoint = FindWayPoint(parentPoint, randomPoint, stepSize);
+            float minCost = newParent.Cost + Vector3.Distance(newParent.Value, wayPoint);
+            bool onObstacle = CheckObstaclePoint(wayPoint);
+            if (!onObstacle)
+            {
                 foreach (Node<Vector3> node in tree.All)
                 {
-                    float newDist = Vector3.Distance(node.Value, randomPoint);
-                    if (dist > newDist)
+                    float newDist = Vector3.Distance(node.Value, wayPoint);
+                    if (newDist <= stepSize+1)
                     {
-                        dist = newDist;
-                        newParent = node;
-                        parentPoint = newParent.Value;
-                    }
-                }
-                Vector3 wayPoint = FindWayPoint(parentPoint, randomPoint, stepSize);
-                bool onObstacle = CheckObstaclePoint(wayPoint);
-                if (!onObstacle)
-                {
-                    foreach (Node<Vector3> node in tree.All)
-                    {
-                        float newDist = Vector3.Distance(node.Value, wayPoint);
-                        if (newDist <= stepSize)
-                        {
-                            neighbors.Add(node);
-                        }
-                    }
-
-                    float minCost = newParent.Cost + Vector3.Distance(newParent.Value, wayPoint);
-                    foreach (Node<Vector3> node in neighbors)
-                    {
+                        neighbors.Add(node);
                         if ((node.Cost + Vector3.Distance(wayPoint, node.Value)) < minCost)
                         {
+                        
                             minCost = node.Cost + Vector3.Distance(wayPoint, node.Value);
                             newParent = node;
                         }
                     }
-                    bool edgeOnObstacle =CheckObstacleEdge(parentPoint, wayPoint);
-                    if (!edgeOnObstacle)
-                    {
-                        currNode = newParent.Add(wayPoint);
-                        /*foreach (var node in tree.All.Values())
-                        { 
-                            Debug.DrawLine(newParent.Value, wayPoint, Color.green, 100f);
-                        }*/
-                    }
                 }
-                return currNode;
+                bool edgeOnObstacle =CheckObstacleEdge(parentPoint, wayPoint);
+                if (!edgeOnObstacle)
+                {
+                    currNode = newParent.Add(wayPoint);
+                    currNode.Cost = minCost;
+                    /*foreach (var node in tree.All.Values())
+                    { 
+                        Debug.DrawLine(newParent.Value, wayPoint, Color.green, 100f);
+                    }*/
+                }
+            }
+            return currNode;
         }
 
         public (bool, Node<Vector3>, Node<Vector3>) FindMeetingPoint(Node<Vector3> forwardTree, Node<Vector3> backwardTree, bool pathFound, int iter, Node<Vector3> fLeafNode, Node<Vector3> bLeafNode)
@@ -622,13 +662,13 @@ namespace Scrips
         {
             Vector3 randomPoint = new Vector3(0,0,0);
             bool onObstacle = true;
-            Random random = new Random(1);
+            Random random = new Random();
             
             while (onObstacle)
             {
                 int goalProb = random.Next(1, 101);
                 // Debug.Log($"goalProb: {goalProb}");
-                if (goalProb < 5)
+                if (goalProb < 10)
                 {
                     randomPoint = goalPoint;
                 }
