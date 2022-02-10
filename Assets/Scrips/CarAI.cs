@@ -79,6 +79,7 @@ namespace Scrips
                 speedup_stratagy = 1;
 
             // RRT* inspo version
+            
             //List<Vector3> orig_my_path = RrtStar(start_pos, goal_pos);
             //Debug.Log("finished RRT*");
 
@@ -183,38 +184,6 @@ namespace Scrips
                 }
             }
             DrawPath(my_path, 1);
-
-
-
-            // TODO
-            // 1. final detection
-            // 2. flexible lookahead dist
-
-            // for (int i = 0; i < my_path.C)
-
-            // int idx_now = 0;
-            // int next_idx = 0;
-            // bool can_straight = false;
-            // int straightup_dist = 40;
-            // while (idx_now < my_path.Count - straightup_dist - 1) {
-            //     can_straight = true;
-            //     for (int i = idx_now + 1; i < idx_now + straightup_dist + 1; i++) {
-            //         if (CheckObstacleEdge(my_path[idx_now], my_path[i])) {
-            //             next_idx = i;
-            //             can_straight = false;
-            //             break;
-            //         }
-            //         next_idx = idx_now + straightup_dist;
-            //     }
-            //     if (can_straight) {
-            //         // Vector3 unit_dir = (my_path[next_idx] - my_path[idx_now]) / 10;
-            //         my_path.RemoveRange(idx_now, straightup_dist - 1);
-            //         // for (int i = idx_now + 1; i < idx_now + straightup_dist; i++) {
-            //             // my_path[i] = new Vector3(my_path[idx_now][0] + unit_dir[0], 0, my_path[idx_now][2] + unit_dir[2]);
-            //         // }
-            //     }
-            //     idx_now = next_idx;
-            // }
 
 
             // my_path = PathInjection(my_path, 0.5f);
@@ -476,10 +445,10 @@ namespace Scrips
             int iter = 0;
             List<Vector3> myPath = new List<Vector3>();
             Node<Vector3> finalNode = null;
+            
             int iterLim = 10000;
             Node<Vector3> currNode;
-            int stepSize = 6;
-
+            int stepSize = 8;
 
             while (pathFound == false)
             {
@@ -491,7 +460,6 @@ namespace Scrips
                 Node<Vector3> fLeefNode = BuildTreeStar(xLow, xHigh, zLow, zHigh, startPoint, goalPoint, forwardTree, forwardNewParent, stepSize);
                 Node<Vector3> bLeefNode = BuildTreeStar(xLow, xHigh, zLow, zHigh, goalPoint, startPoint, backwardTree, backwardNewParent, stepSize);
                 (pathFound, fMeetNode, bMeetNode) = FindMeetingPoint(forwardTree, backwardTree, pathFound, iter, fLeefNode, bLeefNode, stepSize);
-                
             }
             // We have found a path to the goal, so now we traverse and combine the trees and find the path nodes
             while (forwardTreeTraversal)
@@ -520,6 +488,7 @@ namespace Scrips
 
             return myPath;
         }
+
 
         public Node<Vector3> BuildTreeStar(float xLow, float xHigh, float zLow, float zHigh, Vector3 startPoint,
             Vector3 goalPoint, Node<Vector3> tree, Node<Vector3> newParent, int stepSize=10)
@@ -554,11 +523,11 @@ namespace Scrips
                         neighbors.Add(node);
                         if ((node.Cost + Vector3.Distance(wayPoint, node.Value)) < minCost)
                         {
-                        
                             minCost = node.Cost + Vector3.Distance(wayPoint, node.Value);
                             newParent = node;
                         }
                     }
+
                 }
                 bool edgeOnObstacle =CheckObstacleEdge(parentPoint, wayPoint);
                 if (!edgeOnObstacle)
@@ -648,6 +617,7 @@ namespace Scrips
                 if (!edgeOnObstacle)
                 {
                     currNode = newParent.Add(wayPoint);
+
                     /*foreach (var node in tree.All.Values())
                         {
                              Debug.DrawLine(newParent.Value, wayPoint, Color.red, 100f);
@@ -661,7 +631,7 @@ namespace Scrips
         {
             Vector3 randomPoint = new Vector3(0,0,0);
             bool onObstacle = true;
-            Random random = new Random();
+            Random random = new Random(1);
             
             while (onObstacle)
             {
@@ -682,6 +652,7 @@ namespace Scrips
             }
             return randomPoint;
         }
+
 
         public Vector3 FindWayPoint(Vector3 start_pos, Vector3 endPoint, int stepSize=10)
         {
@@ -915,16 +886,16 @@ namespace Scrips
                 // a PD-controller to get desired velocity
                 Vector3 position_error = lookahead_position - transform.position;
 
-                float full_speed = 20f;
+                float full_speed = 22f;
                 if (speedup_stratagy == 1) {
                     // 1. speed up to fullest when finishing 20% of the whole path
                     // suitable for short dist
                     float driven_percentage = (float) ((next_waypoint_idx - 1) / (float) my_path.Count);
-                    max_speed = (float) Math.Min(full_speed, full_speed * (driven_percentage / 0.2));
+                    max_speed = (float) Math.Min(full_speed, full_speed * (driven_percentage / 0.1));
                 } else if (speedup_stratagy == 2) {
                     // 2. speed up to fullest within 10 seconds
                     // suitable for long dist
-                    float driven_time_percentage = (float) ((Time.time - start_time) / 10f);
+                    float driven_time_percentage = (float) ((Time.time - start_time) / 5f);
                     max_speed = (float) Math.Min(full_speed, full_speed * driven_time_percentage);
                 }
 

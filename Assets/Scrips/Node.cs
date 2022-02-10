@@ -8,6 +8,31 @@ using System.Data;
 namespace Scrips
 {
     public class Node<T> : IEqualityComparer, IEnumerable<T>, IEnumerable<Node<T>>
+    {
+        public Node<T> Parent { get; private set; }
+        public T Value { get; set; }
+        public float Cost;
+        private readonly List<Node<T>> _children = new List<Node<T>>();
+
+        public Node(T value)
+        {
+            Value = value;
+        }
+
+        public Node<T> this[int index]
+        {
+            get { return _children[index]; }
+        }
+
+        public Node<T> Add(T value, int index = -1, float cost = 0)
+        {
+            var childNode = new Node<T>(value);
+            Add(childNode, index);
+            childNode.Cost = cost;
+            return childNode;
+        }
+
+        public void Add(Node<T> childNode, int index = -1)
         {
           public Node<T> Parent { get; private set; }
           public T Value { get; set; }
@@ -346,59 +371,59 @@ namespace Scrips
           }
    
           #region Equals en ==
-   
-          public static bool operator ==(Node<T> value1, Node<T> value2)
-          {
-              if ((object)(value1) == null && (object) value2 == null)
-              {
-                  return true;
-              }
-              return ReferenceEquals(value1, value2);
-          }
-   
-          public static bool operator !=(Node<T> value1, Node<T> value2)
-          {
-              return !(value1 == value2);
-          }
-   
-          public override bool Equals(Object anderePeriode)
-          {
-              var valueThisType = anderePeriode as Node<T>;
-              return this == valueThisType;
-          }
-   
-          public bool Equals(Node<T> value)
-          {
-              return this == value;
-          }
-   
-          public bool Equals(Node<T> value1, Node<T> value2)
-          {
-              return value1 == value2;
-          }
-   
-          bool IEqualityComparer.Equals(object value1, object value2)
-          {
-              var valueThisType1 = value1 as Node<T>;
-              var valueThisType2 = value2 as Node<T>;
-   
-              return Equals(valueThisType1, valueThisType2);
-          }
-   
-          public int GetHashCode(object obj)
-          {
-              return GetHashCode(obj as Node<T>);
-          }
-   
-          public override int GetHashCode()
-          {
-              return GetHashCode(this);
-          }
-   
-          public int GetHashCode(Node<T> value)
-          {
-              return base.GetHashCode();
-          }
-          #endregion
+
+        public static bool operator ==(Node<T> value1, Node<T> value2)
+        {
+            if ((object)(value1) == null && (object)value2 == null)
+            {
+                return true;
+            }
+            return ReferenceEquals(value1, value2);
         }
+
+        public static bool operator !=(Node<T> value1, Node<T> value2)
+        {
+            return !(value1 == value2);
+        }
+
+        public override bool Equals(Object anderePeriode)
+        {
+            var valueThisType = anderePeriode as Node<T>;
+            return this == valueThisType;
+        }
+
+        public bool Equals(Node<T> value)
+        {
+            return this == value;
+        }
+
+        public bool Equals(Node<T> value1, Node<T> value2)
+        {
+            return value1 == value2;
+        }
+
+        bool IEqualityComparer.Equals(object value1, object value2)
+        {
+            var valueThisType1 = value1 as Node<T>;
+            var valueThisType2 = value2 as Node<T>;
+
+            return Equals(valueThisType1, valueThisType2);
+        }
+
+        public int GetHashCode(object obj)
+        {
+            return GetHashCode(obj as Node<T>);
+        }
+
+        public override int GetHashCode()
+        {
+            return GetHashCode(this);
+        }
+
+        public int GetHashCode(Node<T> value)
+        {
+            return base.GetHashCode();
+        }
+          #endregion
+    }
 }

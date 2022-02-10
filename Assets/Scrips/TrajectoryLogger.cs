@@ -9,6 +9,7 @@ public class TrajectoryLogger : MonoBehaviour
     public string trajectory_filename = "Text/trajectory";
     private TrajectoryInfo myInfo;
     public TrajectoryInfo recordedInfo;
+    // public GameManager gm;
 
     public bool RecordingOn;
     public bool PlaybackOn;
