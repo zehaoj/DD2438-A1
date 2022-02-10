@@ -179,7 +179,7 @@ namespace Scrips
             
             next_waypoint_idx = 1;
 
-            start_time = Time.time;        
+            start_time = Time.time;      
         }
 
 
@@ -710,217 +710,196 @@ namespace Scrips
             float grid_center_x = terrain_manager.myInfo.get_x_pos(i);
             float grid_center_z = terrain_manager.myInfo.get_z_pos(j);
 
+            // current car position
+            Vector3 car_pos = new Vector3(transform.position.x, 0, transform.position.z);
 
-            // right acc, forward acc
-            // m_Drone.Move(-1f, -2f);
+            float min_Dist = 100000f;
+            int min_idx = next_waypoint_idx;
+
+            for (int idx = next_waypoint_idx + 1; idx < my_path.Count; idx ++)
+            {
+                if (CheckObstacleEdge(car_pos, my_path[idx])) {
+                    min_idx --;
+                    break;
+                }
+                Vector3 cur_lookahead_position = my_path[idx];
+                float cur_lookahead_dist = Mathf.Sqrt(Mathf.Pow(car_pos[0] - cur_lookahead_position[0], 2) + Mathf.Pow(car_pos[2] - cur_lookahead_position[2], 2));
+                if (cur_lookahead_dist < min_Dist) {
+                    min_idx = idx;
+                    min_Dist = cur_lookahead_dist;
+                }
+            }
+            // look ahead waypoint position
+            next_waypoint_idx = min_idx;
+
+
+            
+            Vector3 lookahead_position = my_path[next_waypoint_idx];
+
+            lookahead_dist = Mathf.Sqrt(Mathf.Pow(car_pos[0] - lookahead_position[0], 2) + Mathf.Pow(car_pos[2] - lookahead_position[2], 2));
+            goal_distance = Mathf.Sqrt(Mathf.Pow(car_pos[0] - goal_pos[0],2) + Mathf.Pow(car_pos[2] - goal_pos[2], 2));
+        
+            // if close to the look ahead waypoint, choose next waypoint to look next
+            int max_lookahead_dist;
+
+            float avg_curvature = 0f;
+            for (int idx = next_waypoint_idx; idx < Math.Min(next_waypoint_idx + 10, my_path.Count); idx++)
+            {
+                avg_curvature += path_curvature[idx];
+            }
+            avg_curvature /= 10;
+            Debug.Log("avg curv: " + avg_curvature);
+
+
+            bool no_full_speed = (avg_curvature > 0.07f);
+            if (no_full_speed)
+                max_lookahead_dist = 8;
+            else
+                max_lookahead_dist = 16;
+
+            while ((lookahead_dist < max_lookahead_dist) && (next_waypoint_idx < my_path.Count - 1))
+            {
+                if (CheckObstacleEdge(car_pos, my_path[next_waypoint_idx])) {
+                    next_waypoint_idx --;
+                    break;
+                }
+                // Debug.Log("dis:" + lookahead_dist);
+                next_waypoint_idx ++;
+                lookahead_dist = Mathf.Sqrt(Mathf.Pow(car_pos[0] - my_path[next_waypoint_idx][0], 2) + Mathf.Pow(car_pos[2] - my_path[next_waypoint_idx][2], 2));
+            }
+            Debug.Log(next_waypoint_idx);
+            Debug.DrawLine(transform.position, my_path[next_waypoint_idx], Color.yellow);
+
+            
+
+            // a PD-controller to get desired velocity
+            Vector3 position_error = lookahead_position - transform.position;
+
+            float full_speed = 12f;
+            if (speedup_stratagy == 1) {
+                // 1. speed up to fullest when finishing 20% of the whole path
+                // suitable for short dist
+                float driven_percentage = (float) ((next_waypoint_idx - 1) / (float) my_path.Count);
+                max_speed = (float) Math.Min(full_speed, full_speed * (driven_percentage / 0.2));
+            } else if (speedup_stratagy == 2) {
+                // 2. speed up to fullest within 10 seconds
+                // suitable for long dist
+                float driven_time_percentage = (float) ((Time.time - start_time) / 20f);
+                max_speed = (float) Math.Min(full_speed, full_speed * driven_time_percentage);
+            }
+
+            if (no_full_speed)
+                max_speed = Math.Min(max_speed, Math.Max(1f / path_curvature[next_waypoint_idx], 3));
+
+
+            // just finished going back, speed up slowly
+            float finished_hit_time_percentage = (float) ((Time.time - finished_hit_time) / 5f);
+            max_speed = (float) Math.Min(max_speed, full_speed * finished_hit_time_percentage);
+            
+
+            // look ahead for sharp turns in the far front
+            if (next_waypoint_idx < my_path.Count - 6) {
+                for (int lookahead_idx = 0; lookahead_idx < 4; lookahead_idx ++)
+                {
+                    Vector3 cur_path = my_path[next_waypoint_idx + lookahead_idx] - my_path[next_waypoint_idx + lookahead_idx - 1];
+                    Vector3 next_path = my_path[next_waypoint_idx + lookahead_idx + 1] - my_path[next_waypoint_idx + lookahead_idx];
+                    if (Vector3.Angle(cur_path, next_path) > 70f) {
+                        max_speed = Math.Min(max_speed, 5f);
+                        just_hard_turn = true;
+                        if (!just_hard_turn) {
+                            after_hard_turn_time = Time.time;
+                            just_hard_turn = true;
+                        }
+                        break;
+                    }
+                    else if (Vector3.Angle(cur_path, next_path) > 40f) {
+                        max_speed = Math.Min(max_speed, 7f);
+                        just_hard_turn = false;
+                        break;
+                    }
+                }
+            }
+
+            max_speed = Math.Min(max_speed, max_speed_last_time + 0.05f);
+            max_speed_last_time = max_speed;
 
 
             // this is how you access information about the terrain from a simulated laser range finder
             RaycastHit hit;
-            float longRange = 40f;
-            float maxRange = 5f;
-            bool front_wall = false;
-            bool up_front_wall = false;
-            bool left_front_wall = false;
-            bool right_front_wall = false;
-            if (Physics.Raycast(transform.position + transform.up, transform.TransformDirection(Vector3.forward), out hit, maxRange))
-            {
-                Vector3 closestObstacleInFront = transform.TransformDirection(Vector3.forward) * hit.distance;
-                front_wall = true;
-                Debug.DrawRay(transform.position, closestObstacleInFront, Color.yellow);
-            }
-            if (Physics.Raycast(transform.position + transform.up, transform.TransformDirection(Vector3.forward), out hit, longRange))
-            {
-                Vector3 closestObstacleInFront = transform.TransformDirection(Vector3.forward) * hit.distance;
-                up_front_wall = true;
-                Debug.DrawRay(transform.position, closestObstacleInFront, Color.yellow);
-            }
-            if (Physics.Raycast(transform.position + transform.up, transform.TransformDirection(Vector3.forward + Vector3.left), out hit, maxRange))
-            {
-                Vector3 closestObstacleInFront = transform.TransformDirection(Vector3.forward + Vector3.left) * hit.distance;
-                left_front_wall = true;
-                Debug.DrawRay(transform.position, closestObstacleInFront, Color.yellow);
-            }
-            if (Physics.Raycast(transform.position + transform.up, transform.TransformDirection(Vector3.forward + Vector3.right), out hit, maxRange))
-            {
-                Vector3 closestObstacleInFront = transform.TransformDirection(Vector3.forward + Vector3.right) * hit.distance;
-                right_front_wall = true;
-                Debug.DrawRay(transform.position, closestObstacleInFront, Color.yellow);
+            // float longRange = 40f;
+            float maxRange = 12f;
+            List<Vector3> ray_list = new List<Vector3>();
+            List<float> ray_dir_dist = new List<float>();
+            ray_list.Add(new Vector3(0f, 0f, 1f));
+            ray_list.Add(new Vector3(-0.5f, 0f, 0.85f));
+            ray_list.Add(new Vector3(-0.7f, 0f, 0.7f));
+            ray_list.Add(new Vector3(-0.85f, 0f, 0.5f));
+            ray_list.Add(new Vector3(-1f, 0f, 0f));
+            ray_list.Add(new Vector3(-0.85f, 0f, -0.5f));
+            ray_list.Add(new Vector3(-0.7f, 0f, -0.7f));
+            ray_list.Add(new Vector3(-0.5f, 0f, -0.85f));
+            ray_list.Add(new Vector3(0f, 0f, -1f));
+            ray_list.Add(new Vector3(0.5f, 0f, -0.85f));
+            ray_list.Add(new Vector3(0.7f, 0f, -0.7f));
+            ray_list.Add(new Vector3(0.85f, 0f, -0.5f));
+            ray_list.Add(new Vector3(1f, 0f, 0f));
+            ray_list.Add(new Vector3(0.85f, 0f, 0.5f));
+            ray_list.Add(new Vector3(0.7f, 0f, 0.7f));
+            ray_list.Add(new Vector3(0.5f, 0f, 0.85f));
+
+            Vector3 sum_acc = new Vector3(0f, 0f, 0f);
+
+            foreach (var ray in ray_list) {
+                if (Physics.Raycast(transform.position + transform.up, ray, out hit, maxRange)) {
+                    Vector3 closestObstacleDir = ray * hit.distance;
+                    ray_dir_dist.Add(hit.distance);
+                    Debug.DrawRay(transform.position, closestObstacleDir, Color.yellow);
+                    float max_speed_factor = full_speed / max_speed;
+                    float angle_factor = (180 - Vector3.Angle(m_Drone.velocity, ray)) / 90f;
+                    float look_ahead_factor = (180 - Vector3.Angle((lookahead_position - transform.position), ray)) / 90f;
+                    if ((ray[0] != 0) && (ray[2] != 0))
+                        sum_acc += ray * (maxRange - hit.distance) * (-1f) * 0.1f * look_ahead_factor * 
+                            max_speed_factor * angle_factor * (0.1f + 50f * (float)Math.Pow(1 - (hit.distance - 0.1f) / maxRange, 4f));
+                    else
+                        sum_acc += ray * (maxRange - hit.distance) * (-1f) * 0.15f * look_ahead_factor *
+                            max_speed_factor * (0.1f + 80f * (float)Math.Pow(1 - (hit.distance - 0.1f) / maxRange, 4f));
+                } else {
+                    ray_dir_dist.Add(0f);
+                }
             }
 
+            Vector3 velocity_error = m_Drone.velocity * (max_speed - m_Drone.velocity.magnitude);
+            Vector3 desired_acceleration = 3 * (1f * position_error + k_d * velocity_error);
 
-            if (((Time.time - hit_time) > 4) && ((real_speed_last_time - my_rigidbody.velocity.magnitude) > 2f) && !just_hit && ((Time.time - start_time) > 2)) {
-                just_hit = true;
-                Debug.Log("Hit");
-                hit_time = Time.time;
+            Vector3 final_acc = desired_acceleration + sum_acc;
+
+            Debug.Log("Sum acc: " + (sum_acc[0]) + ", " + (sum_acc[2]));
+
+            Debug.Log("Reg acc: " + (desired_acceleration[0]) + ", " + (desired_acceleration[2]));
+
+            float horizontal = final_acc[0];
+            float vertical = final_acc[2];
+
+            // this is how you control the car
+            Debug.Log("hor:" + horizontal + "  vertical:" + vertical + " Velo:" + m_Drone.velocity.magnitude + "max_speed:" + max_speed);
+
+
+
+
+            // start to break when approaching target
+            if (goal_distance < 10)
+            {
+                Debug.Log("Close enough, stopping");
+                // m_Drone.Move(steering, 0f, 1f, 1f);
             }
-
-
-            // when hit
-            if (just_hit) {
-                // if ((Time.time - hit_time) < 2.5) {
-                //     m_Car.Move(0f, -0.3f, -0.3f, 0);
-                //     Debug.Log("Going back");
-                // } else if (my_rigidbody.velocity.magnitude > 0.1) {
-                //     m_Car.Move(0f, 0, 0, 1);
-                //     Debug.Log("Stopping");
-                // } else {
-                //     just_hit = false;
-                //     finished_hit_time = Time.time;
-                //     while (CheckObstacleEdge(transform.position, my_path[next_waypoint_idx])) {
-                //         next_waypoint_idx --;
-                //     }
-                //     next_waypoint_idx -= 2;
+            else
+            {
+                float acc_total = (float) Math.Sqrt(Math.Pow(horizontal, 2f) + Math.Pow(vertical, 2f));
+                float reduce_factor = 2f / acc_total;
+                m_Drone.Move(reduce_factor * horizontal, reduce_factor * vertical);
                 // }
-                Debug.Log("later2");
-            } else {
-                just_hit = false;
-                // current car position
-                Vector3 car_pos = new Vector3(transform.position.x, 0, transform.position.z);
-
-                float min_Dist = 100000f;
-                int min_idx = next_waypoint_idx;
-
-                for (int idx = next_waypoint_idx + 1; idx < my_path.Count; idx ++)
-                {
-                    if (CheckObstacleEdge(car_pos, my_path[idx])) {
-                        min_idx --;
-                        break;
-                    }
-                    Vector3 cur_lookahead_position = my_path[idx];
-                    float cur_lookahead_dist = Mathf.Sqrt(Mathf.Pow(car_pos[0] - cur_lookahead_position[0], 2) + Mathf.Pow(car_pos[2] - cur_lookahead_position[2], 2));
-                    if (cur_lookahead_dist < min_Dist) {
-                        min_idx = idx;
-                        min_Dist = cur_lookahead_dist;
-                    }
-                }
-                // look ahead waypoint position
-                next_waypoint_idx = min_idx;
-
-
-                
-                Vector3 lookahead_position = my_path[next_waypoint_idx];
-
-                lookahead_dist = Mathf.Sqrt(Mathf.Pow(car_pos[0] - lookahead_position[0], 2) + Mathf.Pow(car_pos[2] - lookahead_position[2], 2));
-                goal_distance = Mathf.Sqrt(Mathf.Pow(car_pos[0] - goal_pos[0],2) + Mathf.Pow(car_pos[2] - goal_pos[2], 2));
-            
-                // if close to the look ahead waypoint, choose next waypoint to look next
-                int max_lookahead_dist;
-
-                float avg_curvature = 0f;
-                for (int idx = next_waypoint_idx; idx < Math.Min(next_waypoint_idx + 10, my_path.Count); idx++)
-                {
-                    avg_curvature += path_curvature[idx];
-                }
-                avg_curvature /= 10;
-                Debug.Log("avg curv: " + avg_curvature);
-
-
-                bool no_full_speed = ((up_front_wall) || (avg_curvature > 0.07f));
-                if (no_full_speed)
-                    max_lookahead_dist = 4;
-                else
-                    max_lookahead_dist = 8;
-
-                while ((lookahead_dist < max_lookahead_dist) && (next_waypoint_idx < my_path.Count - 1))
-                {
-                    if (CheckObstacleEdge(car_pos, my_path[next_waypoint_idx])) {
-                        next_waypoint_idx --;
-                        break;
-                    }
-                    // Debug.Log("dis:" + lookahead_dist);
-                    next_waypoint_idx ++;
-                    lookahead_dist = Mathf.Sqrt(Mathf.Pow(car_pos[0] - my_path[next_waypoint_idx][0], 2) + Mathf.Pow(car_pos[2] - my_path[next_waypoint_idx][2], 2));
-                }
-                Debug.Log(next_waypoint_idx);
-                Debug.DrawLine(transform.position, my_path[next_waypoint_idx], Color.yellow);
-
-                
-
-                // a PD-controller to get desired velocity
-                Vector3 position_error = lookahead_position - transform.position;
-
-                float full_speed = 15f;
-                if (speedup_stratagy == 1) {
-                    // 1. speed up to fullest when finishing 20% of the whole path
-                    // suitable for short dist
-                    float driven_percentage = (float) ((next_waypoint_idx - 1) / (float) my_path.Count);
-                    max_speed = (float) Math.Min(full_speed, full_speed * (driven_percentage / 0.2));
-                } else if (speedup_stratagy == 2) {
-                    // 2. speed up to fullest within 10 seconds
-                    // suitable for long dist
-                    float driven_time_percentage = (float) ((Time.time - start_time) / 10f);
-                    max_speed = (float) Math.Min(full_speed, full_speed * driven_time_percentage);
-                }
-
-                if (no_full_speed)
-                    max_speed = Math.Min(max_speed, Math.Max(1f / path_curvature[next_waypoint_idx], 3));
-
-
-                // just finished going back, speed up slowly
-                float finished_hit_time_percentage = (float) ((Time.time - finished_hit_time) / 5f);
-                max_speed = (float) Math.Min(max_speed, full_speed * finished_hit_time_percentage);
-
-                // look ahead for sharp turns in the far front
-                if (next_waypoint_idx < my_path.Count - 6) {
-                    for (int lookahead_idx = 0; lookahead_idx < 4; lookahead_idx ++)
-                    {
-                        Vector3 cur_path = my_path[next_waypoint_idx + lookahead_idx] - my_path[next_waypoint_idx + lookahead_idx - 1];
-                        Vector3 next_path = my_path[next_waypoint_idx + lookahead_idx + 1] - my_path[next_waypoint_idx + lookahead_idx];
-                        if (Vector3.Angle(cur_path, next_path) > 70f) {
-                            max_speed = Math.Min(max_speed, 5f);
-                            just_hard_turn = true;
-                            if (!just_hard_turn) {
-                                after_hard_turn_time = Time.time;
-                                just_hard_turn = true;
-                            }
-                            break;
-                        }
-                        else if (Vector3.Angle(cur_path, next_path) > 40f) {
-                            max_speed = Math.Min(max_speed, 7f);
-                            just_hard_turn = false;
-                            break;
-                        }
-                    }
-                }
-
-                max_speed = Math.Min(max_speed, max_speed_last_time + 0.05f);
-                max_speed_last_time = max_speed;
-
-                Vector3 velocity_error = my_rigidbody.velocity * (max_speed - my_rigidbody.velocity.magnitude);
-                Vector3 desired_acceleration = k_p * position_error + k_d * velocity_error;
-
-                Debug.Log((desired_acceleration[0]) + ", " + (desired_acceleration[2]));
-
-                float horizontal = desired_acceleration[0];
-                float vertical = desired_acceleration[2];
-
-                // this is how you control the car
-                Debug.Log("hor:" + horizontal + "  vertical:" + vertical + " Velo:" + my_rigidbody.velocity.magnitude + "max_speed:" + max_speed);
-
-
-
-
-                // start to break when approaching target
-                if (goal_distance < 10)
-                {
-                    Debug.Log("Close enough, stopping");
-                    // m_Drone.Move(steering, 0f, 1f, 1f);
-                }
-                else
-                {
-                    if ((left_front_wall) && (!right_front_wall))
-                        Debug.Log("later");
-                        // m_Drone.Move(1, 0.5f, acceleration, 0f);
-                    else if ((!left_front_wall) && (right_front_wall))
-                        Debug.Log("later");
-                        // m_Drone.Move(-1, 0.5f, acceleration, 0f);
-                    else {
-                        m_Drone.Move(horizontal, vertical);
-                    }
-                }
-                real_speed_last_time = my_rigidbody.velocity.magnitude;
             }
+            real_speed_last_time = m_Drone.velocity.magnitude;
         }
     }
 }

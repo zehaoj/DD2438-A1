@@ -844,16 +844,16 @@ namespace Scrips
                 // a PD-controller to get desired velocity
                 Vector3 position_error = lookahead_position - transform.position;
 
-                float full_speed = 20f;
+                float full_speed = 22f;
                 if (speedup_stratagy == 1) {
                     // 1. speed up to fullest when finishing 20% of the whole path
                     // suitable for short dist
                     float driven_percentage = (float) ((next_waypoint_idx - 1) / (float) my_path.Count);
-                    max_speed = (float) Math.Min(full_speed, full_speed * (driven_percentage / 0.2));
+                    max_speed = (float) Math.Min(full_speed, full_speed * (driven_percentage / 0.1));
                 } else if (speedup_stratagy == 2) {
                     // 2. speed up to fullest within 10 seconds
                     // suitable for long dist
-                    float driven_time_percentage = (float) ((Time.time - start_time) / 10f);
+                    float driven_time_percentage = (float) ((Time.time - start_time) / 5f);
                     max_speed = (float) Math.Min(full_speed, full_speed * driven_time_percentage);
                 }
 
